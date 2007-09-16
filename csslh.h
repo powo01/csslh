@@ -13,26 +13,26 @@
 struct configuration
 {
 	char* publicHostname;
-	int publicPort;
+	char* publicPort;
 	char* sshHostname;
-	int sshPort;
+	char* sshPort;
 	char* sslHostname;
 	int timeOut;
-	int sslPort;
+	char* sslPort;
 	int bufferSize;
 	int niceLevel;
 	char* username;						// Username to change into
 };
 
 void init_sockaddr (struct sockaddr_in *name,
-     	            const char *hostname,
-        		    int port);
+     	            const char* hostname,
+        		    const char* port);
 int writeall(int socket, void* buffer, size_t bytes);
 int bridgeConnection(int remoteSocket, int localSocket,
 					 unsigned char* readBuffer, struct timeval* timeOut);
 void* bridgeThread(void* arg);
 int daemonize(const char* name);
-void splitHostPort(char* hostPort, char** hostPart, int* portPart);
+void splitHostPort(char* hostPort, char** hostPart, char** portPart);
 int parseCommandLine(int argc, char* argv[]);
         		  
 #endif /*CSSLH_H_*/

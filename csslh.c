@@ -16,19 +16,40 @@
 #include <strings.h>
 #include <string.h>
 #include <pwd.h>
+#include <ctype.h>
 
 #include "csslh.h"
+
+static char const versionId[] = "$Id$";
 
 struct configuration settings;
 
 void init_sockaddr (struct sockaddr_in *name,
      	            const char *hostname,
-        		    int port)
+        		    const char* port)
 {
 	struct hostent *hostinfo;
 
 	name->sin_family = AF_INET;
-    name->sin_port = htons (port);
+	if(isdigit(*port))
+	{
+		name->sin_port = htons (atoi(port));
+	}
+	else
+	{
+		struct servent* portInfo = getservbyname(port,"tcp");
+		
+		if(portInfo)
+		{
+			name->sin_port = portInfo->s_port;
+		}
+		else
+		{
+			fprintf(stderr,"%s(): unable to resolve service %s to port number\n\r",
+					__FUNCTION__,port);
+			exit(1);
+		}
+	}
     hostinfo = gethostbyname (hostname);
     if (hostinfo == NULL)
     {
@@ -129,7 +150,7 @@ void* bridgeThread(void* arg)
 	if(0 != geteuid()) // run only as non-root
 	{
 		unsigned char* readBuffer = malloc(settings.bufferSize);
-		int localPort = settings.sslPort;
+		char* localPort = settings.sslPort;
 		char* localHost = settings.sslHostname;
 		struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
 		struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
@@ -251,7 +272,7 @@ int daemonize(const char* name)
 	return(rc);
 }
 
-void splitHostPort(char* hostPort, char** hostPart, int* portPart)
+void splitHostPort(char* hostPort, char** hostPart, char** portPart)
 {
 	// input format hostname:port
 	char* ptr = index(hostPort,':');
@@ -260,12 +281,14 @@ void splitHostPort(char* hostPort, char** hostPart, int* portPart)
 		*ptr++ = '\0';
 		*hostPart = malloc(strlen(hostPort)+1);
 		strcpy(*hostPart, hostPort);
-		*portPart = atoi(ptr);
 	}
 	else
 	{
-		*portPart = atoi(hostPort);
-	}	
+		ptr = hostPort;
+	}
+	
+	*portPart = malloc(strlen(ptr)+1);
+	strcpy(*portPart, ptr);
 }
 
 int parseCommandLine(int argc, char* argv[])
@@ -281,13 +304,14 @@ int parseCommandLine(int argc, char* argv[])
 		{ "buffersize", required_argument, 0, 'b' },
 		{ "nicelevel", required_argument, 0, 'n' },
 		{ "help", no_argument, 0, 'h' },
+		{ "version", no_argument, 0, 'v' },
 		{ 0, 0, 0, 0  }
 	};
 	
 	/* set default values */
 	settings.publicHostname = settings.sshHostname = settings.sslHostname = "localhost";
-	settings.publicPort = settings.sslPort = SSL_PORT;
-	settings.sshPort = SSH_PORT;
+	settings.publicPort = settings.sslPort = "https";
+	settings.sshPort = "ssh";
 	settings.timeOut = 2;
 	settings.bufferSize = BUFFERSIZE;
 	settings.niceLevel = 19;
@@ -296,12 +320,16 @@ int parseCommandLine(int argc, char* argv[])
 	while (optind < argc)
 	{
 		int index = -1;
-		int result = getopt_long(argc, argv, "p:s:l:t:b:n:",
+		int result = getopt_long(argc, argv, "p:s:l:t:b:n:v",
 				long_options, &index);
 		if (result == -1)
 			break; /* end of list */
 		switch (result)
 		{
+			case 'v': /* print version */
+				fprintf(stderr,"Version: %s\n\r", versionId);
+				exit(0);
+				break;
 			case 'p': /* same as index==0 */
 				splitHostPort(optarg,
 							  &settings.publicHostname, &settings.publicPort);
@@ -342,8 +370,7 @@ int main(int argc, char* argv[])
 	int rc = parseCommandLine(argc, argv);
 	
 	// test for root
-	if(settings.publicPort > 1024 || // non-root 
-	   0 == geteuid()) // need to be root
+	if(0 == geteuid()) // need to be root
 	{ 
 		// get https port on internet side
 		int serverSocket = socket(PF_INET,SOCK_STREAM, 0);
