@@ -15,30 +15,11 @@
 #include <getopt.h>
 #include <strings.h>
 #include <string.h>
+#include <pwd.h>
 
-#define TRUE (1==1)
-#define FALSE (2==1)
+#include "csslh.h"
 
-#define SSH_PORT 22
-#define SSL_PORT 443
-#define NEW_ROOT_DIR "/tmp"
-
-#define BUFFERSIZE 16368
-
-struct configuration
-{
-	char* publicHostname;
-	int publicPort;
-	char* sshHostname;
-	int sshPort;
-	char* sslHostname;
-	int timeOut;
-	int sslPort;
-	int bufferSize;
-	int niceLevel;
-	int euid;
-	int egid;
-} settings;
+struct configuration settings;
 
 void init_sockaddr (struct sockaddr_in *name,
      	            const char *hostname,
@@ -218,8 +199,7 @@ void* bridgeThread(void* arg)
 int daemonize(const char* name)
 {
 	int rc = fork();
-// 	char logFile[256];
-
+	
 	if(rc > 0)
 	{
 		fprintf(stderr,"%s started ... (pid=%d)\n\r",
@@ -251,11 +231,22 @@ int daemonize(const char* name)
     // renice process
     nice(settings.niceLevel);        // lowest prio
  
+    
     if(0 == geteuid()) // only for root
     {
-    	// leave user and group root
-    	setegid(settings.euid);  // nogroup
-    	seteuid(settings.egid);  // nobody
+    	struct passwd* userSystemData = getpwnam(settings.username);
+    	
+    	if(userSystemData != 0)
+    	{
+    		// leave user and group root
+    		setegid(userSystemData->pw_gid);
+    		seteuid(userSystemData->pw_uid);
+    	}
+    	else
+    	{
+    		fprintf(stderr,"unable to change user and group");
+    		exit(1);
+    	}
     }
 	return(rc);
 }
@@ -300,7 +291,7 @@ int parseCommandLine(int argc, char* argv[])
 	settings.timeOut = 2;
 	settings.bufferSize = BUFFERSIZE;
 	settings.niceLevel = 19;
-	settings.euid = settings.egid = 65534; // nogroup, nobody
+	settings.username = "nobody";
 	
 	while (optind < argc)
 	{
