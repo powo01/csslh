@@ -18,11 +18,13 @@
 #include <pwd.h>
 #include <ctype.h>
 
+#include "settings.h"
+#include "readWrite.h"
 #include "csslh.h"
 
-static char const versionId[] = "$Id$";
+const char* versionId = "$Id$";
 
-struct configuration settings;
+extern struct configuration settings;
 
 void init_sockaddr (struct sockaddr_in *name,
      	            const char *hostname,
@@ -59,25 +61,6 @@ void init_sockaddr (struct sockaddr_in *name,
    	name->sin_addr = *(struct in_addr *) hostinfo->h_addr;
 }
 
-int writeall(int socket, void* buffer, size_t bytes)
-{
-	ssize_t alreadyWriteBytes = 0;
-	
-	while(bytes > 0 &&
-		alreadyWriteBytes < bytes)
-	{
-		ssize_t writeBytes = write(socket, buffer + alreadyWriteBytes,
-								bytes - alreadyWriteBytes);
-		
-		if(writeBytes > 0)
-			alreadyWriteBytes += writeBytes;
-		else
-			break;
-	}
-	
-	return(alreadyWriteBytes == bytes);
-}
-
 int bridgeConnection(int remoteSocket, int localSocket,
 					 unsigned char* readBuffer, struct timeval* timeOut)
 {
@@ -99,18 +82,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 		
 		if(FD_ISSET(remoteSocket, &readFds) != 0)
 		{
-			ssize_t readBytes = read(remoteSocket, readBuffer, settings.bufferSize);
-			
-			if(readBytes > 0)
-			{
-				if(FALSE == writeall(localSocket, readBuffer, readBytes))
-				{
-					fprintf(stderr,
-							"Problems during write to localSocket");
-					break;
-				}
-			}
-			else
+			if(redirectData(remoteSocket,localSocket, readBuffer) <= 0)
 			{
 				rc = TRUE;
 				break;
@@ -118,18 +90,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 		}
 		if(FD_ISSET(localSocket, &readFds) != 0)
 		{
-			ssize_t readBytes = read(localSocket, readBuffer, settings.bufferSize);
-			
-			if(readBytes > 0)
-			{
-				if(FALSE == writeall(remoteSocket, readBuffer, readBytes))
-				{
-					fprintf(stderr,
-							"Problems during write to remoteSocket");
-					break;
-				}				
-			}
-			else
+			if(redirectData(localSocket, remoteSocket, readBuffer) <= 0)
 			{
 				rc = TRUE;
 				break;
@@ -187,10 +148,7 @@ void* bridgeThread(void* arg)
 	        {
 	        	if(rc != 0) // no timeout
 	        	{
-	    			ssize_t readBytes = read(remoteSocket, readBuffer, settings.bufferSize);
-	    			
-	    			if(readBytes <=  0 ||
-	    			   FALSE == writeall(localSocket, readBuffer, readBytes))
+	    			if(redirectData(remoteSocket, localSocket, readBuffer) <= 0)
 	    			{
 	    				close(localSocket);
 	    				close(remoteSocket);
@@ -269,99 +227,6 @@ int daemonize(const char* name)
     		exit(1);
     	}
     }
-	return(rc);
-}
-
-void splitHostPort(char* hostPort, char** hostPart, char** portPart)
-{
-	// input format hostname:port
-	char* ptr = index(hostPort,':');
-	if(ptr != 0)
-	{
-		*ptr++ = '\0';
-		*hostPart = malloc(strlen(hostPort)+1);
-		strcpy(*hostPart, hostPort);
-	}
-	else
-	{
-		ptr = hostPort;
-	}
-	
-	*portPart = malloc(strlen(ptr)+1);
-	strcpy(*portPart, ptr);
-}
-
-int parseCommandLine(int argc, char* argv[])
-{
-	int rc = TRUE;
-	
-	const struct option long_options[] =
-	{
-		{ "port", required_argument, 0, 'p' },
-		{ "ssh", required_argument, 0, 's' },
-		{ "ssl", required_argument, 0, 'l' },
-		{ "timeout", required_argument, 0, 't' },
-		{ "buffersize", required_argument, 0, 'b' },
-		{ "nicelevel", required_argument, 0, 'n' },
-		{ "help", no_argument, 0, 'h' },
-		{ "version", no_argument, 0, 'v' },
-		{ 0, 0, 0, 0  }
-	};
-	
-	/* set default values */
-	settings.publicHostname = settings.sshHostname = settings.sslHostname = "localhost";
-	settings.publicPort = settings.sslPort = "https";
-	settings.sshPort = "ssh";
-	settings.timeOut = 2;
-	settings.bufferSize = BUFFERSIZE;
-	settings.niceLevel = 19;
-	settings.username = "nobody";
-	
-	while (optind < argc)
-	{
-		int index = -1;
-		int result = getopt_long(argc, argv, "p:s:l:t:b:n:v",
-				long_options, &index);
-		if (result == -1)
-			break; /* end of list */
-		switch (result)
-		{
-			case 'v': /* print version */
-				fprintf(stderr,"Version: %s\n\r", versionId);
-				exit(0);
-				break;
-			case 'p': /* same as index==0 */
-				splitHostPort(optarg,
-							  &settings.publicHostname, &settings.publicPort);
-				break;
-			case 's': /* same as index==1 */
-				splitHostPort(optarg,	
-						&settings.sshHostname, &settings.sshPort);				
-				break;
-			case 'l': /* same as index==2 */
-				splitHostPort(optarg,		
-						&settings.sslHostname, &settings.sslPort);							
-				break;
-			case 't': /* same as index==3 */
-				settings.timeOut = atoi(optarg);
-				break;
-			case 'b': /* same as index==4 */
-				settings.bufferSize = atoi(optarg);
-				break;
-			case 'n': /* same as index==4 */
-				settings.niceLevel = atoi(optarg);
-				break;				
-			default: /* unknown */
-				break;
-		}
-	}
-	/* print all other parameters */
-	while (optind < argc)
-	{
-		fprintf(stderr,
-				"other parameter: <%s>\n", argv[optind++]);
-	}
-
 	return(rc);
 }
 
