@@ -15,6 +15,29 @@ const char* handleConnectionsId = "$Id$";
 
 extern struct configuration settings;
 
+pthread_mutex_t condition_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  condition_cond  = PTHREAD_COND_INITIALIZER;
+
+int modifyClientThreadCounter(int delta)
+{
+	int rc = FALSE;
+	int maxClientThreads = 8;
+
+	static clientCounter = 0;
+	static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+	pthread_mutex_lock(&count_mutex);
+	if((delta > 0 && clientCounter < maxClientThreads) ||
+	    delta <= 0)
+	{
+		clientCounter += delta;
+		rc = TRUE;
+	}
+	pthread_mutex_unlock(&count_mutex);
+
+	return(rc);
+}
+	
 int handleConnections(int serverSocket)
 {
 	int rc = 0;
@@ -23,7 +46,17 @@ int handleConnections(int serverSocket)
 	{
 		struct sockaddr_in remoteName;
 		socklen_t sockAddrSize = sizeof(remoteName);
-		
+		int clientThreadReady;
+
+		pthread_mutex_lock(&condition_mutex);
+		clientThreadReady = modifyClientThreadCounter(1);
+		while(FALSE == clientThreadReady)
+		{
+			pthread_cond_wait( &condition_cond, &condition_mutex );
+			clientThreadReady = modifyClientThreadCounter(1);
+		}
+		pthread_mutex_unlock(&condition_mutex);
+				
 		int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
 							      &sockAddrSize);
 							
@@ -170,6 +203,14 @@ void* bridgeThread(void* arg)
 		fprintf(stderr,
 				"%s() running only as non-root", __FUNCTION__);
 	}
+
+	pthread_mutex_lock( &condition_mutex );
+	if(TRUE == modifyClientThreadCounter(-1)) // unregister client thread
+	{
+		pthread_cond_signal( &condition_cond );
+	}
+	pthread_mutex_unlock(&condition_mutex );
+
 	pthread_exit((void *) 0); // no receiver for return code
 }
 
