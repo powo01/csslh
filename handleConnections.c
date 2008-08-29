@@ -21,13 +21,13 @@ pthread_cond_t  condition_cond  = PTHREAD_COND_INITIALIZER;
 int modifyClientThreadCounter(int delta)
 {
 	int rc = FALSE;
-	int maxClientThreads = 8;
 
 	static clientCounter = 0;
 	static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	pthread_mutex_lock(&count_mutex);
-	if((delta > 0 && clientCounter < maxClientThreads) ||
+	if((delta > 0 &&
+	    clientCounter <= settings.maxClientThreads) ||
 	    delta <= 0)
 	{
 		clientCounter += delta;

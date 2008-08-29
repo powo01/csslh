@@ -44,6 +44,7 @@ int parseCommandLine(int argc, char* argv[])
 		{ "nicelevel", required_argument, 0, 'n' },
 		{ "help", no_argument, 0, 'h' },
 		{ "version", no_argument, 0, 'v' },
+		{ "limitThreads", required_argument, 0, 'x'},
 		{ 0, 0, 0, 0  }
 	};
 	
@@ -55,6 +56,7 @@ int parseCommandLine(int argc, char* argv[])
 	settings.bufferSize = BUFFERSIZE;
 	settings.niceLevel = 19;
 	settings.username = "nobody";
+	settings.maxClientThreads = 7;
 	
 	while (optind < argc)
 	{
@@ -89,6 +91,9 @@ int parseCommandLine(int argc, char* argv[])
 				break;
 			case 'n': /* same as index==4 */
 				settings.niceLevel = atoi(optarg);
+				break;
+			case 'x':
+				settings.maxClientThreads = atoi(optarg);
 				break;				
 			default: /* unknown */
 				break;

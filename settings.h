@@ -22,6 +22,7 @@ struct configuration
 	int bufferSize;
 	int niceLevel;
 	char* username;						// Username to change into
+	int maxClientThreads;
 };
 
 void splitHostPort(char* hostPort, char** hostPart, char** portPart);
