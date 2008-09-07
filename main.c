@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #include "settings.h"
 #include "utils.h"
@@ -18,33 +20,50 @@ int main(int argc, char* argv[])
 	// test for root
 	if(0 == geteuid()) // need to be root
 	{ 
-		// get https port on internet side
-		int serverSocket = socket(PF_INET,SOCK_STREAM, 0);
-		
-		if(serverSocket >= 0)
+	  
+	  struct addrinfo* addrInfo;
+	  struct addrinfo* addrInfoBase;
+	  int serverSocket;
+
+	  resolvAddress(settings.publicHostname, settings.publicPort,
+			&addrInfo);
+	  
+	  for(addrInfoBase = addrInfo;
+	      addrInfo != NULL; addrInfo->ai_next)
+	    {
+	      serverSocket = socket(addrInfo->ai_family,
+				    addrInfo->ai_socktype,
+				    addrInfo->ai_protocol);
+	      if(serverSocket == -1)
+		continue;
+
+	      if(bind(serverSocket,
+		      addrInfo->ai_addr, addrInfo->ai_addrlen) == 0)
+		break;
+
+	      close(serverSocket);
+	    }
+
+	      if(addrInfo != NULL &&
+		 daemonize(argv[0]) >= 0 &&	
+		 listen(serverSocket, 5) >= 0)	
 		{
-			struct sockaddr_in servername;
-			init_sockaddr(&servername, settings.publicHostname, settings.publicPort);
-			
-			if(bind(serverSocket, (struct sockaddr *) &servername, sizeof(servername)) >= 0 &&
-			   daemonize(argv[0]) >= 0 &&	
-			   listen(serverSocket, 5) >= 0)	
-			{
-				handleConnections(serverSocket);
-			} // bind
-			else
-			{
-				fprintf(stderr,
-						"error bind/listen");
-			}
-		} // serverSocket
-	}
+		  handleConnections(serverSocket);
+		}
+	      else
+		{
+		  fprintf(stderr,
+			  "error bind/listen");
+		}
+	      if(addrInfoBase != NULL)
+		freeaddrinfo(addrInfoBase);
+	} // serverSocket
 	else
-	{
+	  {
 		fprintf(stderr,"%s must be started as root\n\r",
-					argv[0]);
-					
+			argv[0]);
+		
 		rc = -1;
-	}
+	  }
 	return(rc);
 }
