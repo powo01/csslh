@@ -28,7 +28,7 @@ void splitHostPort(char* hostPort, char** hostPart, char** portPart)
 	*portPart = malloc(strlen(ptr)+1);
 	strcpy(*portPart, ptr);
 }
-
+ 
 int parseCommandLine(int argc, char* argv[])
 {
 	int rc = TRUE;
@@ -61,7 +61,7 @@ int parseCommandLine(int argc, char* argv[])
 	while (optind < argc)
 	{
 		int index = -1;
-		int result = getopt_long(argc, argv, "p:s:l:t:b:n:v",
+		int result = getopt_long(argc, argv, "p:s:l:t:b:n:hvx:",
 				long_options, &index);
 		if (result == -1)
 			break; /* end of list */
