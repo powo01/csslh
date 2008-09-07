@@ -19,41 +19,29 @@
 #include "utils.h"
 
 const char* utilsId = "$Id$";
-	
-void init_sockaddr (struct sockaddr_in *name,
-     	            const char *hostname,
-        		    const char* port)
-{
-	struct hostent *hostinfo;
 
-	name->sin_family = AF_INET;
-	if(isdigit(*port))
-	{
-		name->sin_port = htons (atoi(port));
-	}
-	else
-	{
-		struct servent* portInfo = getservbyname(port,"tcp");
-		
-		if(portInfo)
-		{
-			name->sin_port = portInfo->s_port;
-		}
-		else
-		{
-			fprintf(stderr,"%s(): unable to resolve service %s to port number\n\r",
-					__FUNCTION__,port);
-			exit(1);
-		}
-	}
-    hostinfo = gethostbyname (hostname);
-    if (hostinfo == NULL)
-    {
-		fprintf (stderr, "Unknown host %s.\n", hostname);
-    		        return;
-    }
-   	name->sin_addr = *(struct in_addr *) hostinfo->h_addr;
-}
+void resolvAddress (const char* hostname,
+		    const char* port,
+		    struct addrinfo** res)
+{
+  struct addrinfo hints;
+  
+  /* fill up hints */
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;     /* Allow IPv4 or IPv6 */
+  hints.ai_socktype = SOCK_STREAM; /* Datagram socket */
+  hints.ai_flags = AI_PASSIVE;     /* For wildcard IP address */
+  hints.ai_protocol = 0;           /* Any protocol */
+  hints.ai_canonname = NULL;
+  hints.ai_addr = NULL;
+  hints.ai_next = NULL;
+
+  if(0 != getaddrinfo(hostname, port,
+		      &hints, res))
+  {
+    fprintf(stderr, "getaddrinfo: failed\n");
+  }
+}	
 
 int daemonize(const char* name)
 {

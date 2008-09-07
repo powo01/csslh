@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <netdb.h>
 
 #include "utils.h"
 #include "settings.h"
@@ -20,197 +21,218 @@ pthread_cond_t  condition_cond  = PTHREAD_COND_INITIALIZER;
 
 int modifyClientThreadCounter(int delta)
 {
-	int rc = FALSE;
+  int rc = FALSE;
 
-	static clientCounter = 0;
-	static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
+  static clientCounter = 0;
+  static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-	pthread_mutex_lock(&count_mutex);
-	if((delta > 0 &&
-	    clientCounter <= settings.maxClientThreads) ||
-	    delta <= 0)
-	{
-		clientCounter += delta;
-		rc = TRUE;
-	}
-	pthread_mutex_unlock(&count_mutex);
+  pthread_mutex_lock(&count_mutex);
+  if((delta > 0 &&
+      clientCounter <= settings.maxClientThreads) ||
+     delta <= 0)
+    {
+      clientCounter += delta;
+      rc = TRUE;
+    }
+  pthread_mutex_unlock(&count_mutex);
 
-	return(rc);
+  return(rc);
 }
 	
 int handleConnections(int serverSocket)
 {
-	int rc = 0;
+  int rc = 0;
 	
-	while(1)
+  while(1)
+    {
+      struct sockaddr_storage remoteName;
+      socklen_t sockAddrSize = sizeof(remoteName);
+      int clientThreadReady;
+
+      pthread_mutex_lock(&condition_mutex);
+      clientThreadReady = modifyClientThreadCounter(1);
+      while(FALSE == clientThreadReady)
 	{
-		struct sockaddr_in remoteName;
-		socklen_t sockAddrSize = sizeof(remoteName);
-		int clientThreadReady;
-
-		pthread_mutex_lock(&condition_mutex);
-		clientThreadReady = modifyClientThreadCounter(1);
-		while(FALSE == clientThreadReady)
-		{
-			pthread_cond_wait( &condition_cond, &condition_mutex );
-			clientThreadReady = modifyClientThreadCounter(1);
-		}
-		pthread_mutex_unlock(&condition_mutex);
+	  pthread_cond_wait( &condition_cond, &condition_mutex );
+	  clientThreadReady = modifyClientThreadCounter(1);
+	}
+      pthread_mutex_unlock(&condition_mutex);
 				
-		int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
-							      &sockAddrSize);
+      int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
+				&sockAddrSize);
 							
-		if(clientSocket >= 0)
-		{
-			 pthread_t threadId;
-			 pthread_attr_t threadAttr;
+      if(clientSocket >= 0)
+	{
+	  pthread_t threadId;
+	  pthread_attr_t threadAttr;
 			 
-			 pthread_attr_init(&threadAttr);
+	  pthread_attr_init(&threadAttr);
 			 
-			 if(pthread_attr_setdetachstate(&threadAttr,
-			 		PTHREAD_CREATE_DETACHED) == 0 &&
-			 	pthread_create(&threadId, &threadAttr,
-			 		&bridgeThread, (void *) &clientSocket) == 0)
-			 {
-			 	pthread_attr_destroy(&threadAttr);
-			 }
-			 else
-			 {
-				fprintf(stderr,
-						"unable to spawn new thread for %d",
-						clientSocket);
+	  if(pthread_attr_setdetachstate(&threadAttr,
+					 PTHREAD_CREATE_DETACHED) == 0 &&
+	     pthread_create(&threadId, &threadAttr,
+			    &bridgeThread, (void *) &clientSocket) == 0)
+	    {
+	      pthread_attr_destroy(&threadAttr);
+	    }
+	  else
+	    {
+	      fprintf(stderr,
+		      "unable to spawn new thread for %d",
+		      clientSocket);
 				
-			 	close(clientSocket);
+	      close(clientSocket);
 	
-			 	rc = -1;
+	      rc = -1;
 			 	
-			 	break;
-			 }
-		}
-	} // while
+	      break;
+	    }
+	}
+    } // while
 
-	return(rc);
+  return(rc);
 }
 
 int bridgeConnection(int remoteSocket, int localSocket,
-					 unsigned char* readBuffer, struct timeval* timeOut)
+		     unsigned char* readBuffer, struct timeval* timeOut)
 {
-	int rc = FALSE;
-	fd_set readFds;
-	const int maxFd = (remoteSocket > localSocket ?
-		remoteSocket : localSocket) + 1;
-	while(1)
+  int rc = FALSE;
+  fd_set readFds;
+  const int maxFd = (remoteSocket > localSocket ?
+		     remoteSocket : localSocket) + 1;
+  while(1)
+    {
+      FD_ZERO(&readFds);
+      FD_SET(remoteSocket, &readFds);
+      FD_SET(localSocket, &readFds);
+	
+      if(select(maxFd, &readFds, 0, 0, timeOut) <= 0)
 	{
-		FD_ZERO(&readFds);
-		FD_SET(remoteSocket, &readFds);
-		FD_SET(localSocket, &readFds);
-	
-		if(select(maxFd, &readFds, 0, 0, timeOut) <= 0)
-		{
-				// timeout/error
-				break;
-		}
-		
-		if(FD_ISSET(remoteSocket, &readFds) != 0)
-		{
-			if(redirectData(remoteSocket,localSocket, readBuffer) <= 0)
-			{
-				rc = TRUE;
-				break;
-			}
-		}
-		if(FD_ISSET(localSocket, &readFds) != 0)
-		{
-			if(redirectData(localSocket, remoteSocket, readBuffer) <= 0)
-			{
-				rc = TRUE;
-				break;
-			}
-		}
+	  // timeout/error
+	  break;
 	}
-	close(localSocket);
-	close(remoteSocket);
+		
+      if(FD_ISSET(remoteSocket, &readFds) != 0)
+	{
+	  if(redirectData(remoteSocket,localSocket, readBuffer) <= 0)
+	    {
+	      rc = TRUE;
+	      break;
+	    }
+	}
+      if(FD_ISSET(localSocket, &readFds) != 0)
+	{
+	  if(redirectData(localSocket, remoteSocket, readBuffer) <= 0)
+	    {
+	      rc = TRUE;
+	      break;
+	    }
+	}
+    }
+  close(localSocket);
+  close(remoteSocket);
 	
-	return(rc);
+  return(rc);
 }
 
 void* bridgeThread(void* arg)
 {
-	int remoteSocket = *((int *) arg);
-	int rc;
+  int remoteSocket = *((int *) arg);
+  int rc;
 	
-	if(0 != geteuid()) // run only as non-root
-	{
-		unsigned char* readBuffer = malloc(settings.bufferSize);
-		char* localPort = settings.sslPort;
-		char* localHost = settings.sslHostname;
-		struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
-		struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
-		struct timeval* connectionTimeout = 0;
-		fd_set readFds;
+  if(0 != geteuid()) // run only as non-root
+    {
+      unsigned char* readBuffer = malloc(settings.bufferSize);
+      char* localPort = settings.sslPort;
+      char* localHost = settings.sslHostname;
+      struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
+      struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
+      struct timeval* connectionTimeout = 0;
+      fd_set readFds;
 		
-		// test for ssl/ssh connection
-		FD_ZERO(&readFds);
-		FD_SET(remoteSocket, &readFds);
-		rc = select(remoteSocket+1, &readFds, 0, 0, &sshDetectTimeout);
+      // test for ssl/ssh connection
+      FD_ZERO(&readFds);
+      FD_SET(remoteSocket, &readFds);
+      rc = select(remoteSocket+1, &readFds, 0, 0, &sshDetectTimeout);
 		
-		if(rc >= 0)
-		{
-			struct sockaddr_in servername;
-			int localSocket;
-			
-			if(rc == 0) // timeout -> ssh connection
-			{
-				localPort = settings.sshPort;
-				localHost = settings.sshHostname;
-			}
-			else	// ssl connection
-			{
-				connectionTimeout = &sslConnectionTimeout;
-			}
-			
-			init_sockaddr (&servername, localHost, localPort);
-			localSocket = socket(PF_INET,SOCK_STREAM, 0);
-			
-			if(localSocket >= 0 &&
-			   connect(localSocket,
-			   			(struct sockaddr *) &servername,
-	                    sizeof (servername)) == 0)
-	        {
-	        	if(rc != 0) // no timeout
-	        	{
-	    			if(redirectData(remoteSocket, localSocket, readBuffer) <= 0)
-	    			{
-	    				close(localSocket);
-	    				close(remoteSocket);
-	    				free(readBuffer);
-	    				pthread_exit((void *) 0); // no receiver for return code
-	    			}
-	        	}
-	        	
-	        	bridgeConnection(remoteSocket, localSocket,
-	        					 readBuffer, connectionTimeout);
-	        } 			    			
-		}
-		else
-		{
-			close(remoteSocket);
-		}
-		free(readBuffer);
-	}
-	else
+      if(rc >= 0)
 	{
-		fprintf(stderr,
-				"%s() running only as non-root", __FUNCTION__);
-	}
+	  struct addrinfo* addrInfo;
+	  struct addrinfo* addrInfoBase;
+	  int localSocket;
+			
+	  if(rc == 0) // timeout -> ssh connection
+	    {
+	      localPort = settings.sshPort;
+	      localHost = settings.sshHostname;
+	    }
+	  else	// ssl connection
+	    {
+	      connectionTimeout = &sslConnectionTimeout;
+	    }
+		  
+	  resolvAddress(localHost, localPort, &addrInfo);
 
-	pthread_mutex_lock( &condition_mutex );
-	if(TRUE == modifyClientThreadCounter(-1)) // unregister client thread
+	  for(addrInfoBase = addrInfo; // need for delete
+	      addrInfo != NULL; addrInfo = addrInfo->ai_next)
+	    {
+	      localSocket = socket(addrInfo->ai_family,
+				   addrInfo->ai_socktype,
+				   addrInfo->ai_protocol);
+			
+	      if(localSocket == -1)
+		{
+		  continue;
+		}
+
+	      if(connect(localSocket,
+			 addrInfo->ai_addr,
+			 addrInfo->ai_addrlen) != -1)
+		break;
+	      
+
+	      close(localSocket);
+	    }
+
+	  if (addrInfo != NULL)               /* address succeeded */
+	    {
+	      if(rc != 0) // no timeout
+		{
+		  if(redirectData(remoteSocket, localSocket, readBuffer) <= 0)
+		    {
+		      close(localSocket);
+		      close(remoteSocket);
+		      free(readBuffer);
+		      pthread_exit((void *) 0); // no receiver for return code
+		    }
+		}
+		  
+	      bridgeConnection(remoteSocket, localSocket,
+			       readBuffer, connectionTimeout);
+	    }
+	  
+	  if(addrInfoBase != NULL)
+	    freeaddrinfo(addrInfoBase);
+	}
+      else
 	{
-		pthread_cond_signal( &condition_cond );
+	  close(remoteSocket);
 	}
-	pthread_mutex_unlock(&condition_mutex );
+      free(readBuffer);
+    }
+  else
+    {
+      fprintf(stderr,
+	      "%s() running only as non-root", __FUNCTION__);
+    }
 
-	pthread_exit((void *) 0); // no receiver for return code
+  pthread_mutex_lock( &condition_mutex );
+  if(TRUE == modifyClientThreadCounter(-1)) // unregister client thread
+    {
+      pthread_cond_signal( &condition_cond );
+    }
+  pthread_mutex_unlock(&condition_mutex );
+
+  pthread_exit((void *) 0); // no receiver for return code
 }
 
