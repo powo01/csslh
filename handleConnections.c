@@ -3,9 +3,9 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <pthread.h>
 
 #include "utils.h"
 #include "settings.h"
@@ -15,29 +15,6 @@
 const char* handleConnectionsId = "$Id$";
 
 extern struct configuration settings;
-
-pthread_mutex_t condition_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  condition_cond  = PTHREAD_COND_INITIALIZER;
-
-int modifyClientThreadCounter(int delta)
-{
-  int rc = FALSE;
-
-  static clientCounter = 0;
-  static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-  pthread_mutex_lock(&count_mutex);
-  if((delta > 0 &&
-      clientCounter <= settings.maxClientThreads) ||
-     delta <= 0)
-    {
-      clientCounter += delta;
-      rc = TRUE;
-    }
-  pthread_mutex_unlock(&count_mutex);
-
-  return(rc);
-}
 	
 int handleConnections(int serverSocket)
 {
@@ -47,17 +24,9 @@ int handleConnections(int serverSocket)
     {
       struct sockaddr_storage remoteName;
       socklen_t sockAddrSize = sizeof(remoteName);
-      int clientThreadReady;
-
-      pthread_mutex_lock(&condition_mutex);
-      clientThreadReady = modifyClientThreadCounter(1);
-      while(FALSE == clientThreadReady)
-	{
-	  pthread_cond_wait( &condition_cond, &condition_mutex );
-	  clientThreadReady = modifyClientThreadCounter(1);
-	}
-      pthread_mutex_unlock(&condition_mutex);
-				
+   
+      modifyClientThreadCounter(1);
+     				
       int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
 				&sockAddrSize);
 							
@@ -82,7 +51,8 @@ int handleConnections(int serverSocket)
 		      clientSocket);
 				
 	      close(clientSocket);
-	
+	      modifyClientThreadCounter(-1);
+
 	      rc = -1;
 			 	
 	      break;
@@ -203,6 +173,9 @@ void* bridgeThread(void* arg)
 		      close(localSocket);
 		      close(remoteSocket);
 		      free(readBuffer);
+
+		      modifyClientThreadCounter(-1);
+
 		      pthread_exit((void *) 0); // no receiver for return code
 		    }
 		}
@@ -226,12 +199,7 @@ void* bridgeThread(void* arg)
 	      "%s() running only as non-root", __FUNCTION__);
     }
 
-  pthread_mutex_lock( &condition_mutex );
-  if(TRUE == modifyClientThreadCounter(-1)) // unregister client thread
-    {
-      pthread_cond_signal( &condition_cond );
-    }
-  pthread_mutex_unlock(&condition_mutex );
+  modifyClientThreadCounter(-1);
 
   pthread_exit((void *) 0); // no receiver for return code
 }

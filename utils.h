@@ -6,5 +6,7 @@ void resolvAddress(const char* hostname,
 		   struct addrinfo** res);
 
 int daemonize(const char* name);
- 
+
+int modifyClientThreadCounter(int delta);
+
 #endif /*UTILS_H_*/
