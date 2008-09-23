@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 
 #include "settings.h"
@@ -95,3 +96,40 @@ int daemonize(const char* name)
 	return(rc);
 }
 
+
+int modifyClientThreadCounter(int delta)
+{
+  int rc = FALSE;
+  extern struct configuration settings;
+
+  static int clientCounter = 0;
+  static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
+  static pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
+  static int mutexInit = 0;
+
+  if(mutexInit == 0)
+  {
+	pthread_cond_init(&condition_cond, NULL);
+	pthread_mutex_init(&count_mutex, NULL);
+	mutexInit = 1;
+  }
+
+  pthread_mutex_lock(&count_mutex);
+  if(delta > 0) // increment
+  {
+	if(clientCounter > settings.maxClientThreads)
+	{
+		pthread_cond_wait(&condition_cond, &count_mutex);
+        }
+  }
+  clientCounter += delta;
+ 
+  pthread_mutex_unlock(&count_mutex);
+
+  if(delta < 0)
+  {
+	pthread_cond_signal(&condition_cond);
+  }
+
+  return(rc);
+}

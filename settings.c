@@ -13,7 +13,7 @@ struct configuration settings;
 void splitHostPort(char* hostPort, char** hostPart, char** portPart)
 {
 	// input format hostname:port
-	char* ptr = index(hostPort,':');
+	char* ptr = strrchr(hostPort,':'); // find last delimiter
 	if(ptr != 0)
 	{
 		*ptr++ = '\0';
