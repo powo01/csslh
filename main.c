@@ -9,7 +9,7 @@
 #include "utils.h"
 #include "handleConnections.h"
 
-const char* versionId = "$Id$";
+const char* versionId = "$Id: main.c 106 2008-09-07 16:26:09Z wolfgang $";
 
 extern struct configuration settings;
 
