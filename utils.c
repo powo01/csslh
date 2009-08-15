@@ -34,12 +34,17 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
-
+#include <syslog.h>
 
 #include "settings.h"
 #include "utils.h"
 
 const char* utilsId = "$Id$";
+
+struct bufferList_t* pBufferListRoot = 0;
+pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
+
+extern struct configuration settings;
 
 void resolvAddress (const char* hostname,
 		    const char* port,
@@ -95,7 +100,10 @@ int daemonize(const char* name)
     
     // renice process
     nice(settings.niceLevel);        // lowest prio
- 
+
+    // prepare syslog
+    setlogmask(LOG_UPTO(LOG_NOTICE));
+    openlog("csslh",LOG_PID,LOG_DAEMON); 
     
     if(0 == geteuid()) // only for root
     {
@@ -119,37 +127,62 @@ int daemonize(const char* name)
 
 int modifyClientThreadCounter(int delta)
 {
-  int rc = FALSE;
   extern struct configuration settings;
 
-  static int clientCounter = 0;
+  static volatile int clientCounter = 0;
   static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
   static pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
-  static int mutexInit = 0;
-
-  if(mutexInit == 0)
-  {
-	pthread_cond_init(&condition_cond, NULL);
-	pthread_mutex_init(&count_mutex, NULL);
-	mutexInit = 1;
-  }
-
+  
+  
   pthread_mutex_lock(&count_mutex);
-  if(delta > 0) // increment
+
+  if(delta > 0 && // increment
+     clientCounter >= settings.maxClientThreads)
   {
-	if(clientCounter > settings.maxClientThreads)
-	{
-		pthread_cond_wait(&condition_cond, &count_mutex);
-        }
+	pthread_cond_wait(&condition_cond, &count_mutex);
   }
+ 
   clientCounter += delta;
  
   pthread_mutex_unlock(&count_mutex);
-
-  if(delta < 0)
+ 
+  if(delta < 0 &&
+     clientCounter < settings.maxClientThreads)
   {
 	pthread_cond_signal(&condition_cond);
   }
 
-  return(rc);
+  return(clientCounter);
 }
+
+struct bufferList_t* allocBuffer(void)
+{
+  struct bufferList_t* pBufferListElement = 0;
+
+  pthread_mutex_lock(&bufferListMutex);
+  
+  if(pBufferListRoot != 0)
+  {
+    pBufferListElement = pBufferListRoot;
+    pBufferListRoot = pBufferListElement->next;
+  }
+  else
+  {
+    pBufferListElement = malloc(sizeof(struct bufferList_t));
+    pBufferListElement->buffer = malloc(settings.bufferSize);
+  }
+  pthread_mutex_unlock(&bufferListMutex);
+  
+  return(pBufferListElement);
+}
+
+void freeBuffer(struct bufferList_t* pBufferListElement)
+{
+  pthread_mutex_lock(&bufferListMutex);
+
+  pBufferListElement->next = pBufferListRoot;
+  pBufferListRoot = pBufferListElement;
+
+  pthread_mutex_unlock(&bufferListMutex);
+}
+  

@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 
 	      if(addrInfo != NULL &&
 		 daemonize(argv[0]) >= 0 &&	
-		 listen(serverSocket, 5) >= 0)	
+		 listen(serverSocket, settings.maxClientThreads) >= 0)	
 		{
 		  handleConnections(serverSocket);
 		}

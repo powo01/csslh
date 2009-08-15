@@ -26,6 +26,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <syslog.h>
 
 #include "utils.h"
 #include "settings.h"
@@ -44,17 +45,17 @@ int handleConnections(int serverSocket)
     {
       struct sockaddr_storage remoteName;
       socklen_t sockAddrSize = sizeof(remoteName);
-   
-      modifyClientThreadCounter(1);
-     				
+        				
       int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
 				&sockAddrSize);
 							
       if(clientSocket >= 0)
 	{
+          modifyClientThreadCounter(1);
+
 	  pthread_t threadId;
 	  pthread_attr_t threadAttr;
-			 
+	
 	  pthread_attr_init(&threadAttr);
 			 
 	  if(pthread_attr_setdetachstate(&threadAttr,
@@ -62,22 +63,28 @@ int handleConnections(int serverSocket)
 	     pthread_create(&threadId, &threadAttr,
 			    &bridgeThread, (void *) &clientSocket) == 0)
 	    {
-	      pthread_attr_destroy(&threadAttr);
+	      syslog(LOG_DEBUG,
+		     "spawn new thread for %d",
+                      	clientSocket);
 	    }
 	  else
 	    {
-	      fprintf(stderr,
+	      // fprintf(stderr,
+	      syslog(LOG_ERR,
 		      "unable to spawn new thread for %d",
 		      clientSocket);
 				
 	      close(clientSocket);
 	      modifyClientThreadCounter(-1);
 
-	      rc = -1;
-			 	
-	      break;
+	      // rc = -1;
+	      //break;
 	    }
-	}
+	    
+	    pthread_attr_destroy(&threadAttr);
+	    
+	} // if clientSocket
+
     } // while
 
   return(rc);
@@ -90,7 +97,11 @@ int bridgeConnection(int remoteSocket, int localSocket,
   fd_set readFds;
   const int maxFd = (remoteSocket > localSocket ?
 		     remoteSocket : localSocket) + 1;
-  while(1)
+
+  ssize_t ingressCounter = 0;
+  ssize_t egressCounter = 0;
+
+  while(FALSE == rc)
     {
       FD_ZERO(&readFds);
       FD_SET(remoteSocket, &readFds);
@@ -99,29 +110,41 @@ int bridgeConnection(int remoteSocket, int localSocket,
       if(select(maxFd, &readFds, 0, 0, timeOut) <= 0)
 	{
 	  // timeout/error
+	  rc = TRUE;
 	  break;
 	}
 		
       if(FD_ISSET(remoteSocket, &readFds) != 0)
 	{
-	  if(redirectData(remoteSocket,localSocket, readBuffer) <= 0)
+	  ssize_t bytes = redirectData(remoteSocket,localSocket, readBuffer);
+
+	  if(bytes <= 0)
 	    {
 	      rc = TRUE;
-	      break;
+	    }
+	  else
+	    {
+	      ingressCounter += bytes;
 	    }
 	}
       if(FD_ISSET(localSocket, &readFds) != 0)
 	{
-	  if(redirectData(localSocket, remoteSocket, readBuffer) <= 0)
+	  ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
+	  if(bytes <= 0)
 	    {
 	      rc = TRUE;
-	      break;
+	    }
+	  else
+	    {
+	      egressCounter += bytes;
 	    }
 	}
     }
-  close(localSocket);
-  close(remoteSocket);
-	
+  
+  syslog(LOG_INFO,
+	 "%s(): ingressCounter = %ld, egressCounter = %ld",
+	 __FUNCTION__, ingressCounter, egressCounter);
+
   return(rc);
 }
 
@@ -132,7 +155,6 @@ void* bridgeThread(void* arg)
 	
   if(0 != geteuid()) // run only as non-root
     {
-      unsigned char* readBuffer = malloc(settings.bufferSize);
       char* localPort = settings.sslPort;
       char* localHost = settings.sslHostname;
       struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
@@ -186,39 +208,39 @@ void* bridgeThread(void* arg)
 
 	  if (addrInfo != NULL)               /* address succeeded */
 	    {
+              struct bufferList_t* pBufferListElement = allocBuffer();
+      
 	      if(rc != 0) // no timeout
 		{
-		  if(redirectData(remoteSocket, localSocket, readBuffer) <= 0)
+		  if(redirectData(remoteSocket, localSocket,
+			 pBufferListElement->buffer) > 0)
 		    {
-		      close(localSocket);
-		      close(remoteSocket);
-		      free(readBuffer);
-
-		      modifyClientThreadCounter(-1);
-
-		      pthread_exit((void *) 0); // no receiver for return code
+		      rc = 0; // handle as normal connection
 		    }
 		}
-		  
-	      bridgeConnection(remoteSocket, localSocket,
-			       readBuffer, connectionTimeout);
+		
+	      if(rc == 0)
+		{  
+	      		bridgeConnection(remoteSocket, localSocket,
+				       pBufferListElement->buffer, connectionTimeout);
+                }
+
+	      close(localSocket);
+              
+	      freeBuffer(pBufferListElement);
 	    }
 	  
 	  if(addrInfoBase != NULL)
 	    freeaddrinfo(addrInfoBase);
 	}
-      else
-	{
-	  close(remoteSocket);
-	}
-      free(readBuffer);
     }
   else
     {
-      fprintf(stderr,
-	      "%s() running only as non-root", __FUNCTION__);
+      syslog(LOG_ERR,
+	      "%s() threads running only as non-root", __FUNCTION__);
     }
 
+  close(remoteSocket);
   modifyClientThreadCounter(-1);
 
   pthread_exit((void *) 0); // no receiver for return code
