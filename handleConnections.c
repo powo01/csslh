@@ -27,6 +27,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <netdb.h>
 #include <pthread.h>
 #include <syslog.h>
+#include <errno.h>
 
 #include "utils.h"
 #include "settings.h"
@@ -43,13 +44,13 @@ int handleConnections(int serverSocket)
 	
   while(1)
     {
-      struct sockaddr_storage remoteName;
-      socklen_t sockAddrSize = sizeof(remoteName);
+      struct sockaddr_storage remoteClient;
+      socklen_t sockAddrSize = sizeof(struct sockaddr_storage);
         				
-      int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
+      int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteClient,
 				&sockAddrSize);
 							
-      if(clientSocket >= 0)
+      if(clientSocket != -1)
 	{
           modifyClientThreadCounter(1);
 
@@ -57,10 +58,9 @@ int handleConnections(int serverSocket)
 	  pthread_attr_t threadAttr;
 	
 	  pthread_attr_init(&threadAttr);
-			 
-	  if(pthread_attr_setdetachstate(&threadAttr,
-					 PTHREAD_CREATE_DETACHED) == 0 &&
-	     pthread_create(&threadId, &threadAttr,
+	  pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
+	  
+	  if(pthread_create(&threadId, &threadAttr,
 			    &bridgeThread, (void *) &clientSocket) == 0)
 	    {
 	      syslog(LOG_DEBUG,
@@ -76,15 +76,18 @@ int handleConnections(int serverSocket)
 				
 	      close(clientSocket);
 	      modifyClientThreadCounter(-1);
-
-	      // rc = -1;
-	      //break;
 	    }
 	    
 	    pthread_attr_destroy(&threadAttr);
 	    
-	} // if clientSocket
-
+	} 
+	else // if clientSocket
+	{
+		syslog(LOG_ERR,
+		       "unable to accept client, errno = %d",
+			errno);
+	}
+		
     } // while
 
   return(rc);
@@ -107,7 +110,9 @@ int bridgeConnection(int remoteSocket, int localSocket,
       FD_SET(remoteSocket, &readFds);
       FD_SET(localSocket, &readFds);
 	
-      if(select(maxFd, &readFds, 0, 0, timeOut) <= 0)
+      int rtn = select(maxFd, &readFds, 0, 0, timeOut);
+
+      if(rtn == -1 || rtn == 0)
 	{
 	  // timeout/error
 	  rc = TRUE;
@@ -167,7 +172,7 @@ void* bridgeThread(void* arg)
       FD_SET(remoteSocket, &readFds);
       rc = select(remoteSocket+1, &readFds, 0, 0, &sshDetectTimeout);
 		
-      if(rc >= 0)
+      if(rc != -1)
 	{
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;

@@ -24,6 +24,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <errno.h>
 
 #include "settings.h"
 #include "utils.h"
@@ -65,15 +66,15 @@ int main(int argc, char* argv[])
 	    }
 
 	      if(addrInfo != NULL &&
-		 daemonize(argv[0]) >= 0 &&	
-		 listen(serverSocket, settings.maxClientThreads) >= 0)	
+		 daemonize(argv[0]) != -1 &&	
+		 listen(serverSocket, settings.maxClientThreads) != -1)	
 		{
 		  handleConnections(serverSocket);
 		}
 	      else
 		{
 		  fprintf(stderr,
-			  "error bind/listen");
+			  "error bind/listen, errno=%d\n",errno);
 		}
 	      if(addrInfoBase != NULL)
 		freeaddrinfo(addrInfoBase);

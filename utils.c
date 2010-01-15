@@ -43,6 +43,13 @@ const char* utilsId = "$Id$";
 
 struct bufferList_t* pBufferListRoot = 0;
 pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
+int clientCounter = 0;
+
+pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
+int lockedThreads = 0;
+
+
 
 extern struct configuration settings;
 
@@ -128,29 +135,26 @@ int daemonize(const char* name)
 int modifyClientThreadCounter(int delta)
 {
   extern struct configuration settings;
-
-  static volatile int clientCounter = 0;
-  static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
-  
   
   pthread_mutex_lock(&count_mutex);
 
   if(delta > 0 && // increment
      clientCounter >= settings.maxClientThreads)
   {
+	lockedThreads++;
 	pthread_cond_wait(&condition_cond, &count_mutex);
   }
  
   clientCounter += delta;
  
-  pthread_mutex_unlock(&count_mutex);
- 
   if(delta < 0 &&
-     clientCounter < settings.maxClientThreads)
+     lockedThreads > 0)
   {
 	pthread_cond_signal(&condition_cond);
+	lockedThreads--;
   }
+
+  pthread_mutex_unlock(&count_mutex);
 
   return(clientCounter);
 }
