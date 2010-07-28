@@ -222,27 +222,30 @@ void* bridgeThread(void* arg)
 		  
 	  resolvAddress(localHost, localPort, &addrInfo);
 
-	  for(addrInfoBase = addrInfo; // need for delete
-	      addrInfo != NULL; addrInfo = addrInfo->ai_next)
-	    {
+	  addrInfoBase = addrInfo; // need for delete
+
+	  while(addrInfo != NULL)
+          {
 	      localSocket = socket(addrInfo->ai_family,
 				   addrInfo->ai_socktype,
 				   addrInfo->ai_protocol);
 			
-	      if(localSocket == -1)
+	      if(localSocket >= 0)
 		{
-		  continue;
+
+	      		if(connect(localSocket,
+				 addrInfo->ai_addr,
+			 	addrInfo->ai_addrlen) != -1)
+	       			break;
+			else
+	      			close(localSocket);
 		}
-
-	      if(connect(localSocket,
-			 addrInfo->ai_addr,
-			 addrInfo->ai_addrlen) != -1)
-		break;
-	      
-
-	      close(localSocket);
-	    }
-
+		addrInfo = addrInfo->ai_next;
+	  }
+	
+	  if(addrInfoBase != NULL)
+          	freeaddrinfo(addrInfoBase);
+   	
 	  if (addrInfo != NULL)               /* address succeeded */
 	    {
               struct bufferList_t* pBufferListElement = allocBuffer();
@@ -266,9 +269,10 @@ void* bridgeThread(void* arg)
               
 	      freeBuffer(pBufferListElement);
 	    }
-	  
-	  if(addrInfoBase != NULL)
-	    freeaddrinfo(addrInfoBase);
+	  else
+	    {
+		perror("unable to establish the client connection");
+	    }
 	}
     }
   else
