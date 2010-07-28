@@ -245,9 +245,10 @@ void* bridgeThread(void* arg)
 	      "%s() threads running only as non-root", __FUNCTION__);
     }
 
+ 
   close(remoteSocket);
   modifyClientThreadCounter(-1);
 
-  pthread_exit((void *) 0); // no receiver for return code
+  return NULL; // no receiver for return code
 }
 
