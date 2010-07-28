@@ -81,6 +81,17 @@ int handleConnections(int* serverSockets, int numServerSockets)
 							
       				if(clientSocket != -1)
 				{
+					/* display peer to syslog */
+					char host[NI_MAXHOST], service[NI_MAXSERV];
+					
+					int s = getnameinfo((struct sockaddr *) &remoteClient,
+					    sockAddrSize, host, NI_MAXHOST,
+					    service, NI_MAXSERV, NI_NUMERICSERV);
+
+					syslog(LOG_NOTICE,
+					       "Child connection from %s:%s",
+					       host, service);
+					       
           				modifyClientThreadCounter(1);
 
 	  				pthread_t threadId;
