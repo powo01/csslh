@@ -21,7 +21,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef HANDLE_CONNECTIONS_H_
 #define HANDLE_CONNECTIONS_H_
 
-int handleConnections(int serverSocket);
+int handleConnections(int* serverSockets, int numServerSockets);
 int bridgeConnection(int remoteSocket, int localSocket,
 					 unsigned char* readBuffer, struct timeval* timeOut);
 void* bridgeThread(void* arg);

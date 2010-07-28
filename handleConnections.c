@@ -28,6 +28,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 #include <syslog.h>
 #include <errno.h>
+#include <string.h>
 
 #include "utils.h"
 #include "settings.h"
@@ -38,56 +39,87 @@ const char* handleConnectionsId = "$Id$";
 
 extern struct configuration settings;
 	
-int handleConnections(int serverSocket)
+int handleConnections(int* serverSockets, int numServerSockets)
 {
   int rc = 0;
-	
+  fd_set rfds_master;
+  int maxSocket=0;
+  int idx = 0;
+
+  FD_ZERO(&rfds_master);
+  
+  while(idx < numServerSockets)
+  {
+     FD_SET(serverSockets[idx], &rfds_master);
+     if(serverSockets[idx] > maxSocket)
+	 maxSocket = serverSockets[idx];
+     idx++;
+  }
+ 
   while(1)
     {
-      struct sockaddr_storage remoteClient;
-      socklen_t sockAddrSize = sizeof(struct sockaddr_storage);
-        				
-      int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteClient,
-				&sockAddrSize);
-							
-      if(clientSocket != -1)
-	{
-          modifyClientThreadCounter(1);
+	fd_set rfds;
 
-	  pthread_t threadId;
-	  pthread_attr_t threadAttr;
-	
-	  pthread_attr_init(&threadAttr);
-	  pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
-	  
-	  if(pthread_create(&threadId, &threadAttr,
-			    &bridgeThread, (void *) &clientSocket) == 0)
-	    {
-	      syslog(LOG_DEBUG,
-		     "spawn new thread for %d",
-                      	clientSocket);
-	    }
-	  else
-	    {
-	      // fprintf(stderr,
-	      syslog(LOG_ERR,
-		      "unable to spawn new thread for %d",
-		      clientSocket);
-				
-	      close(clientSocket);
-	      modifyClientThreadCounter(-1);
-	    }
-	    
-	    pthread_attr_destroy(&threadAttr);
-	    
-	} 
-	else // if clientSocket
+	memcpy(&rfds, &rfds_master, sizeof(fd_set));
+
+	rc = select(maxSocket+1, &rfds, NULL, NULL, NULL);
+
+        if(rc == -1)
+		perror("select()");
+	else
 	{
-		syslog(LOG_ERR,
-		       "unable to accept client, errno = %d",
-			errno);
-	}
-		
+      		idx = 0;
+		while(idx < numServerSockets)
+                {
+			if(FD_ISSET(serverSockets[idx], &rfds))
+			{
+      				struct sockaddr_storage remoteClient;
+      				socklen_t sockAddrSize = sizeof(struct sockaddr_storage);
+        				
+      				int clientSocket = accept(serverSockets[idx], (struct sockaddr *) &remoteClient,
+					&sockAddrSize);
+							
+      				if(clientSocket != -1)
+				{
+          				modifyClientThreadCounter(1);
+
+	  				pthread_t threadId;
+	  				pthread_attr_t threadAttr;
+	
+	  				pthread_attr_init(&threadAttr);
+	  				pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
+	  
+	  				if(pthread_create(&threadId, &threadAttr,
+			    			&bridgeThread, (void *) &clientSocket) == 0)
+	    				{
+	      					syslog(LOG_DEBUG,
+		     					"spawn new thread for %d",
+                      					clientSocket);
+	    				}
+	  				else
+	    				{
+	      					// fprintf(stderr,
+	      					syslog(LOG_ERR,
+		      					"unable to spawn new thread for %d",
+		      					clientSocket);
+				
+	      					close(clientSocket);
+	      					modifyClientThreadCounter(-1);
+	    				}				
+	    
+	    				pthread_attr_destroy(&threadAttr);
+	    
+				} 
+				else // if clientSocket
+				{
+					syslog(LOG_ERR,
+		       				"unable to accept client, errno = %d",
+						errno);
+				}
+			}
+			idx++; // next socket
+		} // while inside select
+	} // result of select
     } // while
 
   return(rc);

@@ -40,44 +40,56 @@ int main(int argc, char* argv[])
 	
 	// test for root
 	if(0 == geteuid()) // need to be root
-	{ 
-	  
+	{   
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
-	  int serverSocket;
+	  int serverSockets[10];
+	  int socketIndex = 0;
 
 	  resolvAddress(settings.publicHostname, settings.publicPort,
-			&addrInfo);
+			&addrInfoBase);
 	  
-	  for(addrInfoBase = addrInfo;
-	      addrInfo != NULL; addrInfo->ai_next)
+	  
+          addrInfo = addrInfoBase;
+
+	  while(addrInfo != NULL)
 	    {
-	      serverSocket = socket(addrInfo->ai_family,
+	      int serverSocket = socket(addrInfo->ai_family,
 				    addrInfo->ai_socktype,
 				    addrInfo->ai_protocol);
-	      if(serverSocket == -1)
-		continue;
+	      if(serverSocket >= 0)
+	      {
+	      	if(bind(serverSocket, addrInfo->ai_addr, addrInfo->ai_addrlen) != -1 &&
+		   listen(serverSocket, 5) != -1)
+		   {
+			serverSockets[socketIndex++] = serverSocket;
+		   }
+	     	   else
+		   {  
+	      		close(serverSocket);
+		   }
+	      }
 
-	      if(bind(serverSocket,
-		      addrInfo->ai_addr, addrInfo->ai_addrlen) == 0)
-		break;
+              addrInfo = addrInfo->ai_next;
+            }
 
-	      close(serverSocket);
-	    }
+	     if(addrInfoBase != NULL)
+	     {
+                freeaddrinfo(addrInfoBase);
+		addrInfoBase = NULL;
+	     }
 
-	      if(addrInfo != NULL &&
-		 daemonize(argv[0]) != -1 &&	
-		 listen(serverSocket, settings.maxClientThreads) != -1)	
+	      if(socketIndex > 0 &&
+		 daemonize(argv[0]) != -1)	
 		{
-		  handleConnections(serverSocket);
+		  handleConnections(serverSockets,socketIndex);
 		}
 	      else
 		{
 		  fprintf(stderr,
 			  "error bind/listen, errno=%d\n",errno);
 		}
-	      if(addrInfoBase != NULL)
-		freeaddrinfo(addrInfoBase);
+	      
 	} // serverSocket
 	else
 	  {
