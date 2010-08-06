@@ -37,54 +37,98 @@ const char* handleConnectionsId = "$Id$";
 
 extern struct configuration settings;
 	
-int handleConnections(int serverSocket)
+int handleConnections(int* serverSockets, int numServerSockets)
 {
   int rc = 0;
-	
+  fd_set rfds_master;
+  int maxSocket=0;
+  int idx = 0;
+
+  FD_ZERO(&rfds_master);
+  
+  while(idx < numServerSockets)
+  {
+     FD_SET(serverSockets[idx], &rfds_master);
+     if(serverSockets[idx] > maxSocket)
+	 maxSocket = serverSockets[idx];
+     idx++;
+  }
+ 
   while(1)
     {
-      struct sockaddr_storage remoteName;
-      socklen_t sockAddrSize = sizeof(remoteName);
-        				
-      int clientSocket = accept(serverSocket, (struct sockaddr *) &remoteName,
-				&sockAddrSize);
-							
-      if(clientSocket >= 0)
+	fd_set rfds;
+
+	memcpy(&rfds, &rfds_master, sizeof(fd_set));
+
+	rc = select(maxSocket+1, &rfds, NULL, NULL, NULL);
+
+        if(rc == -1)
+		perror("select()");
+	else
 	{
-          modifyClientThreadCounter(1);
+      		idx = 0;
+		while(idx < numServerSockets)
+                {
+			if(FD_ISSET(serverSockets[idx], &rfds))
+			{
+      				struct sockaddr_storage remoteClient;
+      				socklen_t sockAddrSize = sizeof(struct sockaddr_storage);
+        				
+      				int clientSocket = accept(serverSockets[idx], (struct sockaddr *) &remoteClient,
+					&sockAddrSize);
+							
+      				if(clientSocket != -1)
+				{
+					/* display peer to syslog */
+					char host[NI_MAXHOST], service[NI_MAXSERV];
+					
+					int s = getnameinfo((struct sockaddr *) &remoteClient,
+					    sockAddrSize, host, NI_MAXHOST,
+					    service, NI_MAXSERV, NI_NUMERICSERV);
 
-	  pthread_t threadId;
-	  pthread_attr_t threadAttr;
+					syslog(LOG_NOTICE,
+					       "Child connection from %s:%s",
+					       host, service);
+					       
+          				modifyClientThreadCounter(1);
+
+	  				pthread_t threadId;
+	  				pthread_attr_t threadAttr;
 	
-	  pthread_attr_init(&threadAttr);
-			 
-	  if(pthread_attr_setdetachstate(&threadAttr,
-					 PTHREAD_CREATE_DETACHED) == 0 &&
-	     pthread_create(&threadId, &threadAttr,
-			    &bridgeThread, (void *) &clientSocket) == 0)
-	    {
-	      syslog(LOG_DEBUG,
-		     "spawn new thread for %d",
-                      	clientSocket);
-	    }
-	  else
-	    {
-	      // fprintf(stderr,
-	      syslog(LOG_ERR,
-		      "unable to spawn new thread for %d",
-		      clientSocket);
+	  				pthread_attr_init(&threadAttr);
+	  				pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
+	  
+	  				if(pthread_create(&threadId, &threadAttr,
+			    			&bridgeThread, (void *) &clientSocket) == 0)
+	    				{
+	      					syslog(LOG_DEBUG,
+		     					"spawn new thread for %d",
+                      					clientSocket);
+	    				}
+	  				else
+	    				{
+	      					// fprintf(stderr,
+	      					syslog(LOG_ERR,
+		      					"unable to spawn new thread for %d",
+		      					clientSocket);
 				
-	      close(clientSocket);
-	      modifyClientThreadCounter(-1);
-
-	      // rc = -1;
-	      //break;
-	    }
+	      					close(clientSocket);
+	      					modifyClientThreadCounter(-1);
+	    				}				
 	    
-	    pthread_attr_destroy(&threadAttr);
+	    				pthread_attr_destroy(&threadAttr);
 	    
-	} // if clientSocket
-
+				} 
+				else // if clientSocket
+				{
+					syslog(LOG_ERR,
+		       				"unable to accept client, errno = %d",
+						errno);
+				}
+			}
+			idx++; // next socket
+		} // while inside select
+	} // result of select
     } // while
 
   return(rc);
@@ -107,7 +151,9 @@ int bridgeConnection(int remoteSocket, int localSocket,
       FD_SET(remoteSocket, &readFds);
       FD_SET(localSocket, &readFds);
 	
-      if(select(maxFd, &readFds, 0, 0, timeOut) <= 0)
+      int rtn = select(maxFd, &readFds, 0, 0, timeOut);
+
+      if(rtn == -1 || rtn == 0)
 	{
 	  // timeout/error
 	  rc = TRUE;
@@ -167,7 +213,7 @@ void* bridgeThread(void* arg)
       FD_SET(remoteSocket, &readFds);
       rc = select(remoteSocket+1, &readFds, 0, 0, &sshDetectTimeout);
 		
-      if(rc >= 0)
+      if(rc != -1)
 	{
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
@@ -185,27 +231,30 @@ void* bridgeThread(void* arg)
 		  
 	  resolvAddress(localHost, localPort, &addrInfo);
 
-	  for(addrInfoBase = addrInfo; // need for delete
-	      addrInfo != NULL; addrInfo = addrInfo->ai_next)
-	    {
+	  addrInfoBase = addrInfo; // need for delete
+
+	  while(addrInfo != NULL)
+          {
 	      localSocket = socket(addrInfo->ai_family,
 				   addrInfo->ai_socktype,
 				   addrInfo->ai_protocol);
 			
-	      if(localSocket == -1)
+	      if(localSocket >= 0)
 		{
-		  continue;
+
+	      		if(connect(localSocket,
+				 addrInfo->ai_addr,
+			 	addrInfo->ai_addrlen) != -1)
+	       			break;
+			else
+	      			close(localSocket);
 		}
-
-	      if(connect(localSocket,
-			 addrInfo->ai_addr,
-			 addrInfo->ai_addrlen) != -1)
-		break;
-	      
-
-	      close(localSocket);
-	    }
-
+		addrInfo = addrInfo->ai_next;
+	  }
+	
+	  if(addrInfoBase != NULL)
+          	freeaddrinfo(addrInfoBase);
+   	
 	  if (addrInfo != NULL)               /* address succeeded */
 	    {
               struct bufferList_t* pBufferListElement = allocBuffer();
@@ -229,9 +278,10 @@ void* bridgeThread(void* arg)
               
 	      freeBuffer(pBufferListElement);
 	    }
-	  
-	  if(addrInfoBase != NULL)
-	    freeaddrinfo(addrInfoBase);
+	  else
+	    {
+		perror("unable to establish the client connection");
+	    }
 	}
     }
   else
@@ -243,6 +293,6 @@ void* bridgeThread(void* arg)
   close(remoteSocket);
   modifyClientThreadCounter(-1);
 
-  pthread_exit((void *) 0); // no receiver for return code
+  return NULL; // no receiver for return code
 }
 

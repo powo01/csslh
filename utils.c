@@ -43,6 +43,11 @@ const char* utilsId = "$Id$";
 
 struct bufferList_t* pBufferListRoot = 0;
 pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
+int clientCounter = 0;
+
+pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
+int lockedThreads = 0;
 
 extern struct configuration settings;
 
@@ -54,7 +59,7 @@ void resolvAddress (const char* hostname,
   
   /* fill up hints */
   memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_UNSPEC;     /* Allow IPv4 or IPv6 */
+  hints.ai_family = PF_UNSPEC;     /* Allow IPv4 or IPv6 */
   hints.ai_socktype = SOCK_STREAM; /* Datagram socket */
   hints.ai_flags = AI_PASSIVE;     /* For wildcard IP address */
   hints.ai_protocol = 0;           /* Any protocol */
@@ -128,29 +133,26 @@ int daemonize(const char* name)
 int modifyClientThreadCounter(int delta)
 {
   extern struct configuration settings;
-
-  static volatile int clientCounter = 0;
-  static pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
-  
   
   pthread_mutex_lock(&count_mutex);
 
   if(delta > 0 && // increment
      clientCounter >= settings.maxClientThreads)
   {
+	lockedThreads++;
 	pthread_cond_wait(&condition_cond, &count_mutex);
   }
  
   clientCounter += delta;
  
-  pthread_mutex_unlock(&count_mutex);
- 
   if(delta < 0 &&
-     clientCounter < settings.maxClientThreads)
+     lockedThreads > 0)
   {
 	pthread_cond_signal(&condition_cond);
+	lockedThreads--;
   }
+
+  pthread_mutex_unlock(&count_mutex);
 
   return(clientCounter);
 }
