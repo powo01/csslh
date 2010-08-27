@@ -59,7 +59,8 @@ int handleConnections(int* serverSockets, int numServerSockets)
   while(1)
     {
 	fd_set rfds;
-
+	pthread_attr_t threadAttr;
+	
 	memcpy(&rfds, &rfds_master, sizeof(fd_set));
 
 	rc = select(maxSocket+1, &rfds, NULL, NULL, NULL);
@@ -73,7 +74,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
                 {
 			if(FD_ISSET(serverSockets[idx], &rfds))
 			{
-      				struct sockaddr_storage remoteClient;
+				struct sockaddr_storage remoteClient;
       				socklen_t sockAddrSize = sizeof(struct sockaddr_storage);
         				
       				int clientSocket = accept(serverSockets[idx], (struct sockaddr *) &remoteClient,
@@ -95,7 +96,6 @@ int handleConnections(int* serverSockets, int numServerSockets)
           				modifyClientThreadCounter(1);
 
 	  				pthread_t threadId;
-	  				pthread_attr_t threadAttr;
 	
 	  				pthread_attr_init(&threadAttr);
 	  				pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
@@ -199,16 +199,16 @@ int bridgeConnection(int remoteSocket, int localSocket,
 void* bridgeThread(void* arg)
 {
   int remoteSocket = *((int *) arg);
-  int rc;
-	
+  
   if(0 != geteuid()) // run only as non-root
     {
       char* localPort = settings.sslPort;
       char* localHost = settings.sslHostname;
       struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
       struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
-      struct timeval* connectionTimeout = 0;
+      struct timeval connectionTimeout = { 7200,0 }; // 2 hours
       fd_set readFds;
+      int rc;
 		
       // test for ssl/ssh connection
       FD_ZERO(&readFds);
@@ -228,7 +228,7 @@ void* bridgeThread(void* arg)
 	    }
 	  else	// ssl connection
 	    {
-	      connectionTimeout = &sslConnectionTimeout;
+	      connectionTimeout.tv_sec= sslConnectionTimeout.tv_sec;
 	    }
 		  
 	  resolvAddress(localHost, localPort, &addrInfo);
@@ -273,7 +273,7 @@ void* bridgeThread(void* arg)
 	      if(rc == 0)
 		{  
 	      		bridgeConnection(remoteSocket, localSocket,
-				       pBufferListElement->buffer, connectionTimeout);
+				       pBufferListElement->buffer, &connectionTimeout);
                 }
 
 	      close(localSocket);
@@ -284,7 +284,7 @@ void* bridgeThread(void* arg)
 	    {
 		perror("unable to establish the client connection");
 	    }
-	}
+	}	
     }
   else
     {
@@ -292,7 +292,6 @@ void* bridgeThread(void* arg)
 	      "%s() threads running only as non-root", __FUNCTION__);
     }
 
- 
   close(remoteSocket);
   modifyClientThreadCounter(-1);
 
