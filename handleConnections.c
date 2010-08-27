@@ -159,32 +159,34 @@ int bridgeConnection(int remoteSocket, int localSocket,
 	{
 	  // timeout/error
 	  rc = TRUE;
-	  break;
 	}
-		
-      if(FD_ISSET(remoteSocket, &readFds) != 0)
+      else
 	{
-	  ssize_t bytes = redirectData(remoteSocket,localSocket, readBuffer);
+	  if(FD_ISSET(remoteSocket, &readFds) != 0)
+	    {
+	    ssize_t bytes = redirectData(remoteSocket,localSocket, readBuffer);
 
-	  if(bytes <= 0)
-	    {
-	      rc = TRUE;
+	    if(bytes <= 0)
+	      {
+		 rc = TRUE;
+	      }
+	    else
+	      {
+		ingressCounter += bytes;
+	      }
 	    }
-	  else
-	    {
-	      ingressCounter += bytes;
-	    }
-	}
-      if(FD_ISSET(localSocket, &readFds) != 0)
-	{
-	  ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
-	  if(bytes <= 0)
-	    {
-	      rc = TRUE;
-	    }
-	  else
-	    {
-	      egressCounter += bytes;
+	  if(FALSE == rc &&
+	      FD_ISSET(localSocket, &readFds) != 0)
+	    {	
+	      ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
+	      if(bytes <= 0)
+		{
+		  rc = TRUE;
+		}
+	      else
+		{
+		  egressCounter += bytes;
+		}
 	    }
 	}
     }
