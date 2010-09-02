@@ -146,14 +146,16 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
   ssize_t ingressCounter = 0;
   ssize_t egressCounter = 0;
+  struct timeval tOut = {0,0};
 
   while(FALSE == rc)
     {
       FD_ZERO(&readFds);
       FD_SET(remoteSocket, &readFds);
       FD_SET(localSocket, &readFds);
-	
-      int rtn = select(maxFd, &readFds, 0, 0, timeOut);
+      tOut.tv_sec = timeOut->tv_sec;
+
+      int rtn = select(maxFd, &readFds, 0, 0, &tOut);
 
       if(rtn == -1 || rtn == 0)
 	{
@@ -278,8 +280,9 @@ void* bridgeThread(void* arg)
 				       pBufferListElement->buffer, &connectionTimeout);
                 }
 
+	      shutdown(localSocket,SHUT_RDWR);
 	      close(localSocket);
-              
+
 	      freeBuffer(pBufferListElement);
 	    }
 	  else
@@ -293,7 +296,8 @@ void* bridgeThread(void* arg)
       syslog(LOG_ERR,
 	      "%s() threads running only as non-root", __FUNCTION__);
     }
-
+  
+  shutdown(remoteSocket,SHUT_RDWR);
   close(remoteSocket);
   modifyClientThreadCounter(-1);
 
