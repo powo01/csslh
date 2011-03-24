@@ -170,6 +170,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
 	    if(bytes <= 0)
 	      {
+		 shutdown(remoteSocket,SHUT_RD); // stop receiving on remoteSocket
 		 rc = TRUE;
 	      }
 	    else
@@ -182,6 +183,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 	      ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
 	      if(bytes <= 0)
 		{
+		  shutdown(localSocket,SHUT_RD); // stop receiving on localSocket
 		  rc = TRUE;
 		}
 	      else
@@ -279,7 +281,6 @@ void* bridgeThread(void* arg)
 				       pBufferListElement->buffer, &connectionTimeout);
                 }
 
-	      // shutdown(localSocket,SHUT_RDWR);
 	      close(localSocket);
 
 	      freeBuffer(pBufferListElement);
@@ -295,8 +296,7 @@ void* bridgeThread(void* arg)
       syslog(LOG_ERR,
 	      "%s() threads running only as non-root", __FUNCTION__);
     }
-  
-  // shutdown(remoteSocket,SHUT_RDWR);
+
   close(remoteSocket);
   modifyClientThreadCounter(-1);
 
