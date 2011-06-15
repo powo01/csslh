@@ -84,6 +84,14 @@ int daemonize(const char* name)
 	{
 		fprintf(stderr,"%s started ... (pid=%d)\n\r",
 				name, rc);
+
+		FILE* pidFd = fopen("/var/run/csslh.pid", "w");
+		
+		if(pidFd != 0)
+		{
+			fprintf(pidFd, "%d", rc);
+			fclose(pidFd);
+		}
 				
 		exit(0); // server quit
 	}
@@ -174,6 +182,7 @@ struct bufferList_t* allocBuffer(void)
   {
     pBufferListElement = malloc(sizeof(struct bufferList_t));
     pBufferListElement->buffer = malloc(settings.bufferSize);
+    pBufferListElement->next = 0;
   }
   pthread_mutex_unlock(&bufferListMutex);
   
