@@ -156,8 +156,11 @@ int modifyClientThreadCounter(int delta)
   if(delta < 0 &&
      lockedThreads > 0)
   {
-	pthread_cond_signal(&condition_cond);
-	lockedThreads--;
+	if(clientCounter < settings.maxClientThreads)
+	{
+		pthread_cond_signal(&condition_cond);
+		lockedThreads--;
+	}
   }
 
   pthread_mutex_unlock(&count_mutex);
