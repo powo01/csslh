@@ -27,6 +27,8 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <netdb.h>
 #include <pthread.h>
 #include <syslog.h>
+#include <errno.h>
+#include <string.h>
 
 #include "utils.h"
 #include "settings.h"
@@ -57,7 +59,8 @@ int handleConnections(int* serverSockets, int numServerSockets)
   while(1)
     {
 	fd_set rfds;
-
+	pthread_attr_t threadAttr;
+	
 	memcpy(&rfds, &rfds_master, sizeof(fd_set));
 
 	rc = select(maxSocket+1, &rfds, NULL, NULL, NULL);
@@ -71,7 +74,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
                 {
 			if(FD_ISSET(serverSockets[idx], &rfds))
 			{
-      				struct sockaddr_storage remoteClient;
+				struct sockaddr_storage remoteClient;
       				socklen_t sockAddrSize = sizeof(struct sockaddr_storage);
         				
       				int clientSocket = accept(serverSockets[idx], (struct sockaddr *) &remoteClient,
@@ -93,7 +96,6 @@ int handleConnections(int* serverSockets, int numServerSockets)
           				modifyClientThreadCounter(1);
 
 	  				pthread_t threadId;
-	  				pthread_attr_t threadAttr;
 	
 	  				pthread_attr_init(&threadAttr);
 	  				pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
@@ -144,45 +146,50 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
   ssize_t ingressCounter = 0;
   ssize_t egressCounter = 0;
+  struct timeval tOut = {0,0};
 
   while(FALSE == rc)
     {
       FD_ZERO(&readFds);
       FD_SET(remoteSocket, &readFds);
       FD_SET(localSocket, &readFds);
-	
-      int rtn = select(maxFd, &readFds, 0, 0, timeOut);
+      tOut.tv_sec = timeOut->tv_sec;
+
+      int rtn = select(maxFd, &readFds, 0, 0, &tOut);
 
       if(rtn == -1 || rtn == 0)
 	{
 	  // timeout/error
 	  rc = TRUE;
-	  break;
 	}
-		
-      if(FD_ISSET(remoteSocket, &readFds) != 0)
+      else
 	{
-	  ssize_t bytes = redirectData(remoteSocket,localSocket, readBuffer);
+	  if(FD_ISSET(remoteSocket, &readFds) != 0)
+	    {
+	    ssize_t bytes = redirectData(remoteSocket,localSocket, readBuffer);
 
-	  if(bytes <= 0)
-	    {
-	      rc = TRUE;
+	    if(bytes <= 0)
+	      {
+		 shutdown(localSocket, SHUT_RD);
+		 rc = TRUE;
+	      }
+	    else
+	      {
+		ingressCounter += bytes;
+	      }
 	    }
-	  else
-	    {
-	      ingressCounter += bytes;
-	    }
-	}
-      if(FD_ISSET(localSocket, &readFds) != 0)
-	{
-	  ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
-	  if(bytes <= 0)
-	    {
-	      rc = TRUE;
-	    }
-	  else
-	    {
-	      egressCounter += bytes;
+	  if(FD_ISSET(localSocket, &readFds) != 0)
+	    {	
+	      ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
+	      if(bytes <= 0)
+		{
+		  shutdown(remoteSocket, SHUT_RD);
+		  rc = TRUE;
+		}
+	      else
+		{
+		  egressCounter += bytes;
+		}
 	    }
 	}
     }
@@ -197,16 +204,16 @@ int bridgeConnection(int remoteSocket, int localSocket,
 void* bridgeThread(void* arg)
 {
   int remoteSocket = *((int *) arg);
-  int rc;
-	
+  
   if(0 != geteuid()) // run only as non-root
     {
       char* localPort = settings.sslPort;
       char* localHost = settings.sslHostname;
       struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
       struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
-      struct timeval* connectionTimeout = 0;
+      struct timeval connectionTimeout = { 7200,0 }; // 2 hours
       fd_set readFds;
+      int rc;
 		
       // test for ssl/ssh connection
       FD_ZERO(&readFds);
@@ -226,7 +233,7 @@ void* bridgeThread(void* arg)
 	    }
 	  else	// ssl connection
 	    {
-	      connectionTimeout = &sslConnectionTimeout;
+	      connectionTimeout.tv_sec= sslConnectionTimeout.tv_sec;
 	    }
 		  
 	  resolvAddress(localHost, localPort, &addrInfo);
@@ -271,18 +278,18 @@ void* bridgeThread(void* arg)
 	      if(rc == 0)
 		{  
 	      		bridgeConnection(remoteSocket, localSocket,
-				       pBufferListElement->buffer, connectionTimeout);
+				       pBufferListElement->buffer, &connectionTimeout);
                 }
 
 	      close(localSocket);
-              
+
 	      freeBuffer(pBufferListElement);
 	    }
 	  else
 	    {
 		perror("unable to establish the client connection");
 	    }
-	}
+	}	
     }
   else
     {

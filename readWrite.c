@@ -51,10 +51,11 @@ ssize_t redirectData(int fromSocket, int toSocket, void* buffer)
 
 		if(readBytes > 0)
 		{
-			if(0 != writeall(toSocket, buffer, readBytes))
+			if(FALSE == writeall(toSocket, buffer, readBytes))
 			{
 				fprintf(stderr,
 						"Problems during write to localSocket");
+				readBytes=-1; // error
 			}
 		}
 		
