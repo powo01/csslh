@@ -185,6 +185,7 @@ struct bufferList_t* allocBuffer(void)
   {
     pBufferListElement = pBufferListRoot;
     pBufferListRoot = pBufferListElement->next;
+
     if(pBufferListElement->next != 0)
   	pBufferListElement->next = 0; 
   }
@@ -201,7 +202,7 @@ struct bufferList_t* allocBuffer(void)
   {
 	 syslog(LOG_ERR,"unable to get new buffer");
   }
-
+  
   return(pBufferListElement);
 }
 

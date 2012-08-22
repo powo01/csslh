@@ -170,7 +170,6 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
 	    if(bytes <= 0)
 	      {
-		 // shutdown(localSocket, SHUT_RD);
 		 rc = TRUE;
 	      }
 	    else
@@ -183,7 +182,6 @@ int bridgeConnection(int remoteSocket, int localSocket,
 	      ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
 	      if(bytes <= 0)
 		{
-		  // shutdown(remoteSocket, SHUT_RD);
 		  rc = TRUE;
 		}
 	      else
