@@ -80,7 +80,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
       				int clientSocket = accept(serverSockets[idx], (struct sockaddr *) &remoteClient,
 					&sockAddrSize);
 							
-      				if(clientSocket != -1)
+					if(clientSocket >= 0)
 				{
 					/* display peer to syslog */
 					char host[NI_MAXHOST], service[NI_MAXSERV];
@@ -101,7 +101,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
 	  				pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
 	  
 	  				if(pthread_create(&threadId, &threadAttr,
-			    			&bridgeThread, (void *) &clientSocket) == 0)
+			    			&bridgeThread, (void *) clientSocket) == 0)
 	    				{
 	      					syslog(LOG_DEBUG,
 		     					"spawn new thread for %d",
@@ -170,7 +170,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
 	    if(bytes <= 0)
 	      {
-		 shutdown(localSocket, SHUT_RD);
+		 // shutdown(localSocket, SHUT_RD);
 		 rc = TRUE;
 	      }
 	    else
@@ -183,7 +183,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 	      ssize_t bytes = redirectData(localSocket, remoteSocket, readBuffer);
 	      if(bytes <= 0)
 		{
-		  shutdown(remoteSocket, SHUT_RD);
+		  // shutdown(remoteSocket, SHUT_RD);
 		  rc = TRUE;
 		}
 	      else
@@ -203,7 +203,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
 void* bridgeThread(void* arg)
 {
-  int remoteSocket = *((int *) arg);
+  int remoteSocket = (int) arg;
   
   if(0 != geteuid()) // run only as non-root
     {
