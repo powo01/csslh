@@ -43,11 +43,11 @@ const char* utilsId = "$Id$";
 
 struct bufferList_t* pBufferListRoot = 0;
 pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
-int clientCounter = 0;
+volatile int clientCounter = 0;
 
 pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
-int lockedThreads = 0;
+volatile int lockedThreads = 0;
 
 extern struct configuration settings;
 
@@ -140,32 +140,39 @@ int daemonize(const char* name)
 
 int modifyClientThreadCounter(int delta)
 {
+  int counterValue = 0;
   extern struct configuration settings;
   
   pthread_mutex_lock(&count_mutex);
 
-  if(delta > 0 && // increment
-     clientCounter >= settings.maxClientThreads)
+  if(delta > 0) // increment
   {
-	lockedThreads++;
-	pthread_cond_wait(&condition_cond, &count_mutex);
-  }
- 
-  clientCounter += delta;
- 
-  if(delta < 0 &&
-     lockedThreads > 0)
-  {
-	if(clientCounter < settings.maxClientThreads)
+	clientCounter++;
+
+	if(clientCounter > settings.maxClientThreads)
 	{
-		pthread_cond_signal(&condition_cond);
-		lockedThreads--;
+		lockedThreads++;
+		pthread_cond_wait(&condition_cond, &count_mutex);
+	}
+  } else if(delta < 0) //decrement
+  {
+	clientCounter--;
+
+	if(clientCounter == settings.maxClientThreads)
+	{
+		if(lockedThreads > 0)
+		{
+			lockedThreads--;
+			pthread_cond_signal(&condition_cond);
+		}
 	}
   }
 
+  counterValue = clientCounter;
+
   pthread_mutex_unlock(&count_mutex);
 
-  return(clientCounter);
+  return(counterValue);
 }
 
 struct bufferList_t* allocBuffer(void)
@@ -178,6 +185,8 @@ struct bufferList_t* allocBuffer(void)
   {
     pBufferListElement = pBufferListRoot;
     pBufferListRoot = pBufferListElement->next;
+    if(pBufferListElement->next != 0)
+  	pBufferListElement->next = 0; 
   }
   else
   {
@@ -186,17 +195,29 @@ struct bufferList_t* allocBuffer(void)
     pBufferListElement->next = 0;
   }
   pthread_mutex_unlock(&bufferListMutex);
-  
+
+  if(0 == pBufferListElement ||
+     0 == pBufferListElement->buffer)
+  {
+	 syslog(LOG_ERR,"unable to get new buffer");
+  }
+
   return(pBufferListElement);
 }
 
 void freeBuffer(struct bufferList_t* pBufferListElement)
 {
-  pthread_mutex_lock(&bufferListMutex);
+  if(pBufferListElement != 0 &&
+     pBufferListElement->buffer != 0 )
+  {
+    pthread_mutex_lock(&bufferListMutex);
 
-  pBufferListElement->next = pBufferListRoot;
-  pBufferListRoot = pBufferListElement;
+    pBufferListElement->next = pBufferListRoot;
+    pBufferListRoot = pBufferListElement;
 
-  pthread_mutex_unlock(&bufferListMutex);
+    pthread_mutex_unlock(&bufferListMutex);
+  }
+  else
+	syslog(LOG_ERR,"unable to free empty list element");
 }
   

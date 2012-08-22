@@ -266,24 +266,33 @@ void* bridgeThread(void* arg)
 	    {
               struct bufferList_t* pBufferListElement = allocBuffer();
       
-	      if(rc != 0) // no timeout
-		{
-		  if(redirectData(remoteSocket, localSocket,
-			 pBufferListElement->buffer) > 0)
-		    {
-		      rc = 0; // handle as normal connection
-		    }
-		}
+              // test Buffer
+	      if(NULL != pBufferListElement &&
+		 NULL !=  pBufferListElement->buffer)
+              { 
+              		if(rc != 0) // no timeout
+			{
+		  		if(redirectData(remoteSocket, localSocket,
+			 	pBufferListElement->buffer) > 0)
+		    		{
+		      			rc = 0; // handle as normal connection
+		    		}
+			}
 		
-	      if(rc == 0)
-		{  
-	      		bridgeConnection(remoteSocket, localSocket,
+	      		if(rc == 0)
+			{  
+	      			bridgeConnection(remoteSocket, localSocket,
 				       pBufferListElement->buffer, &connectionTimeout);
-                }
+                	}
 
-	      close(localSocket);
+	      		close(localSocket);
 
-	      freeBuffer(pBufferListElement);
+	      		freeBuffer(pBufferListElement);
+	     }
+	     else // invalid Buffer Structure
+	     {
+			syslog(LOG_ERR, "%s(): invalid Bufferpointer", __FUNCTION__);
+	     }
 	    }
 	  else
 	    {

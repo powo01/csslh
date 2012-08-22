@@ -1,6 +1,6 @@
 TARGET=csslh
 LIBS=-lpthread
-CFLAGS=-O2
+CFLAGS=-Wall -O2 -g
 OBJS=main.o settings.o utils.o handleConnections.o readWrite.o  
 CC=gcc
 
