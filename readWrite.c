@@ -21,27 +21,40 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <syslog.h>
+#include <errno.h>
 
 #include "settings.h"
 #include "readWrite.h"
 
 int writeall(int socket, void* buffer, size_t bytes)
 {
+	int rtn = FALSE;
+
 	ssize_t alreadyWriteBytes = 0;
-	
-	while(bytes > 0 &&
-		alreadyWriteBytes < bytes)
+
+	while(alreadyWriteBytes < bytes)
 	{
-		ssize_t writeBytes = write(socket, buffer + alreadyWriteBytes,
-								bytes - alreadyWriteBytes);
-		
+		ssize_t writeBytes = write(socket,
+				buffer + alreadyWriteBytes,
+				 bytes - alreadyWriteBytes);	
+
 		if(writeBytes > 0)
 			alreadyWriteBytes += writeBytes;
 		else
-			break;
+		{
+				break;
+		}
+	}
+
+	fsync(socket);
+
+	if(alreadyWriteBytes == bytes)
+	{
+		rtn = TRUE;
 	}
 	
-	return(alreadyWriteBytes == bytes);
+	return(rtn);
 }
 
 ssize_t redirectData(int fromSocket, int toSocket, void* buffer)
@@ -53,7 +66,7 @@ ssize_t redirectData(int fromSocket, int toSocket, void* buffer)
 		{
 			if(FALSE == writeall(toSocket, buffer, readBytes))
 			{
-				fprintf(stderr,
+				syslog(LOG_ERR,
 						"Problems during write to localSocket");
 				readBytes=-1; // error
 			}
