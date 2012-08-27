@@ -158,7 +158,7 @@ int modifyClientThreadCounter(int delta)
   {
 	clientCounter--;
 
-	if(clientCounter == settings.maxClientThreads)
+	if(clientCounter <= settings.maxClientThreads)
 	{
 		if(lockedThreads > 0)
 		{
