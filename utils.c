@@ -99,6 +99,7 @@ int daemonize(const char* name)
 	}
 	
 	signal(SIGHUP,SIG_IGN); // ignore HUP signal
+	signal(SIGPIPE, SIG_IGN);  // ignore "Brocken Pipe" signal
 	setsid(); /* obtain a new process group */
 	fclose(stdin);
 	fclose(stdout);

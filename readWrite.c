@@ -50,16 +50,20 @@ int writeall(int socket, void* buffer, size_t bytes)
 		else
 		{
 			if(writeBytes == -1)
+			{
+				if(errno == EINTR)
+					continue;
+
 				syslog(LOG_ERR,"Error during write");
+			}
 
 			break;
 		}
 	}
 
-	fsync(socket);
-
 	if(alreadyWriteBytes == bytes)
 	{
+		fsync(socket);
 		rtn = TRUE;
 	}
 	
