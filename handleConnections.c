@@ -45,6 +45,9 @@ int handleConnections(int* serverSockets, int numServerSockets)
   fd_set rfds_master;
   int maxSocket=0;
   int idx = 0;
+  char lastHost[NI_MAXHOST];
+
+  *lastHost = 0;
 
   FD_ZERO(&rfds_master);
   
@@ -85,14 +88,26 @@ int handleConnections(int* serverSockets, int numServerSockets)
 					/* display peer to syslog */
 					char host[NI_MAXHOST], service[NI_MAXSERV];
 					
+					
 					int s = getnameinfo((struct sockaddr *) &remoteClient,
 					    sockAddrSize, host, NI_MAXHOST,
 					    service, NI_MAXSERV, NI_NUMERICSERV);
 
-					syslog(LOG_NOTICE,
-					       "Child connection from %s:%s",
-					       host, service);
-					       
+					if(0 != strncmp(host,lastHost,NI_MAXHOST))
+					{
+						syslog(LOG_NOTICE,
+					       		"Child connection from %s:%s",
+				  		       host, service);
+
+						strncpy(lastHost,host,NI_MAXHOST);
+					}
+					else
+					{
+						syslog(LOG_DEBUG,
+                                                        "Child connection from %s:%s",
+                                                       host, service);
+					}
+
           				modifyClientThreadCounter(1);
 
 	  				pthread_t threadId;
