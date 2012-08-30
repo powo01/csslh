@@ -54,7 +54,8 @@ int writeall(int socket, void* buffer, size_t bytes)
 				if(errno == EINTR)
 					continue;
 
-				syslog(LOG_ERR,"Error during write");
+				syslog(LOG_ERR,"%s:%d: Error during write (errno=%d)",
+					 __FILE__, __LINE__, errno);
 			}
 
 			break;
