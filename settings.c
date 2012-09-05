@@ -28,7 +28,12 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include "settings.h"
 
 
-struct configuration settings;
+config_t settings;
+
+config_t* pGetConfig(void)
+{
+	return &settings;
+}
 
 void splitHostPort(char* hostPort, char** hostPart, char** portPart)
 {

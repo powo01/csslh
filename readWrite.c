@@ -73,8 +73,7 @@ int writeall(int socket, void* buffer, size_t bytes)
 
 ssize_t redirectData(int fromSocket, int toSocket, void* buffer)
 {
-		extern struct configuration settings;
-		ssize_t readBytes = recv(fromSocket, buffer, settings.bufferSize, 0);
+		ssize_t readBytes = recv(fromSocket, buffer, pGetConfig()->bufferSize, 0);
 
 		if(readBytes > 0)
 		{

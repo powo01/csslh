@@ -30,7 +30,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 
 #define BUFFERSIZE 2048
 
-struct configuration
+typedef struct
 {
 	char* publicHostname;
 	char* publicPort;
@@ -43,8 +43,9 @@ struct configuration
 	int niceLevel;
 	char* username;						// Username to change into
 	int maxClientThreads;
-};
+} config_t;
 
+config_t* pGetConfig(void);
 void splitHostPort(char* hostPort, char** hostPart, char** portPart);
 int parseCommandLine(int argc, char* argv[]);
  

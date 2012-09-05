@@ -37,8 +37,6 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 
 const char* handleConnectionsId = "$Id$";
 
-extern struct configuration settings;
-	
 int handleConnections(int* serverSockets, int numServerSockets)
 {
   int rc = 0;
@@ -220,9 +218,9 @@ void* bridgeThread(void* arg)
   
   if(0 != geteuid()) // run only as non-root
     {
-      char* localPort = settings.sslPort;
-      char* localHost = settings.sslHostname;
-      struct timeval sshDetectTimeout = { settings.timeOut , 0 }; // 2 sec
+      char* localPort = pGetConfig()->sslPort;
+      char* localHost = pGetConfig()->sslHostname;
+      struct timeval sshDetectTimeout = { pGetConfig()->timeOut , 0 }; // 2 sec
       struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
       struct timeval connectionTimeout = { 7200,0 }; // 2 hours
       fd_set readFds;
@@ -241,8 +239,8 @@ void* bridgeThread(void* arg)
 			
 	  if(rc == 0) // timeout -> ssh connection
 	    {
-	      localPort = settings.sshPort;
-	      localHost = settings.sshHostname;
+	      localPort = pGetConfig()->sshPort;
+	      localHost = pGetConfig()->sshHostname;
 	    }
 	  else	// ssl connection
 	    {
