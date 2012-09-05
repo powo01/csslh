@@ -36,10 +36,12 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 #include <syslog.h>
 
-#include "settings.h"
+#include "config.h"
 #include "utils.h"
 
 const char* utilsId = "$Id$";
+
+#define NEW_ROOT_DIR "/tmp"
 
 struct bufferList_t* pBufferListRoot = 0;
 pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;

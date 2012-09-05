@@ -31,7 +31,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 
 #include "utils.h"
-#include "settings.h"
+#include "config.h"
 #include "readWrite.h"
 #include "handleConnections.h"
 
@@ -87,7 +87,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
 					char host[NI_MAXHOST], service[NI_MAXSERV];
 					
 					
-					int s = getnameinfo((struct sockaddr *) &remoteClient,
+					getnameinfo((struct sockaddr *) &remoteClient,
 					    sockAddrSize, host, NI_MAXHOST,
 					    service, NI_MAXSERV, NI_NUMERICSERV);
 
@@ -206,7 +206,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
     }
   
   syslog(LOG_INFO,
-	 "%s(): ingressCounter = %ld, egressCounter = %ld",
+	 "%s(): ingressCounter = %d, egressCounter = %d",
 	 __FUNCTION__, ingressCounter, egressCounter);
 
   return(rc);

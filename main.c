@@ -26,7 +26,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <netdb.h>
 #include <errno.h>
 
-#include "settings.h"
+#include "config.h"
 #include "utils.h"
 #include "handleConnections.h"
 

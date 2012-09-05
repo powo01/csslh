@@ -25,12 +25,14 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <strings.h>
 #include <string.h>
 
-#include "settings.h"
+#include "config.h"
+
+#define BUFFERSIZE 2048
 
 
 config_t settings;
 
-config_t* pGetConfig(void)
+config_t const*  pGetConfig(void)
 {
 	return &settings;
 }

@@ -18,17 +18,11 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 
-#ifndef SETTINGS_H_
-#define SETTINGS_H_
+#ifndef CONFIG_H_
+#define CONFIG_H_
 
 #define TRUE (1==1)
 #define FALSE (2==1)
-
-#define SSH_PORT 22
-#define SSL_PORT 443
-#define NEW_ROOT_DIR "/tmp"
-
-#define BUFFERSIZE 2048
 
 typedef struct
 {
@@ -45,7 +39,7 @@ typedef struct
 	int maxClientThreads;
 } config_t;
 
-config_t* pGetConfig(void);
+config_t const* pGetConfig(void);
 void splitHostPort(char* hostPort, char** hostPart, char** portPart);
 int parseCommandLine(int argc, char* argv[]);
  

@@ -1,7 +1,7 @@
 TARGET=csslh
 LIBS=-lpthread
 CFLAGS=-Wall -O2 -g
-OBJS=main.o settings.o utils.o handleConnections.o readWrite.o  
+OBJS=main.o config.o utils.o handleConnections.o readWrite.o  
 CC=gcc
 INSTALLDIR ?= /usr/local/bin
 DEPEND=.depend
@@ -18,7 +18,7 @@ $(TARGET): $(OBJS)
 	$(CC) -c $(CFLAGS) $< -o $@
     
 clean:
-	rm -f $(TARGET) $(OBJS) $(DEPEND)
+	rm -f $(TARGET) *.o $(DEPEND)
 
 $(DEPEND):
 	$(CC) -M $(CFLAGS) *.c > $@

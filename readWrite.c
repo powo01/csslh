@@ -26,7 +26,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "settings.h"
+#include "config.h"
 #include "readWrite.h"
 
 int writeall(int socket, void* buffer, size_t bytes)
