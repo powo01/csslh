@@ -25,10 +25,17 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <strings.h>
 #include <string.h>
 
-#include "settings.h"
+#include "config.h"
+
+#define BUFFERSIZE 2048
 
 
-struct configuration settings;
+config_t settings;
+
+config_t const*  pGetConfig(void)
+{
+	return &settings;
+}
 
 void splitHostPort(char* hostPort, char** hostPart, char** portPart)
 {

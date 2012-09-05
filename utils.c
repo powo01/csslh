@@ -36,10 +36,12 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <pthread.h>
 #include <syslog.h>
 
-#include "settings.h"
+#include "config.h"
 #include "utils.h"
 
 const char* utilsId = "$Id$";
+
+#define NEW_ROOT_DIR "/tmp"
 
 struct bufferList_t* pBufferListRoot = 0;
 pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -49,7 +51,6 @@ pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
 volatile int lockedThreads = 0;
 
-extern struct configuration settings;
 
 void resolvAddress (const char* hostname,
 		    const char* port,
@@ -77,7 +78,6 @@ void resolvAddress (const char* hostname,
 int daemonize(const char* name)
 {
 	int rc = fork();
-	extern struct configuration settings;
 	if(rc > 0)
 	{
 		fprintf(stderr,"%s started ... (pid=%d)\n\r",
@@ -113,7 +113,7 @@ int daemonize(const char* name)
     chdir(NEW_ROOT_DIR);
     
     // renice process
-    nice(settings.niceLevel);        // lowest prio
+    nice(pGetConfig()->niceLevel);        // lowest prio
 
     // prepare syslog
     setlogmask(LOG_UPTO(LOG_NOTICE));
@@ -121,7 +121,7 @@ int daemonize(const char* name)
     
     if(0 == geteuid()) // only for root
     {
-    	struct passwd* userSystemData = getpwnam(settings.username);
+    	struct passwd* userSystemData = getpwnam(pGetConfig()->username);
     	
     	if(userSystemData != 0)
     	{
@@ -142,7 +142,6 @@ int daemonize(const char* name)
 int modifyClientThreadCounter(int delta)
 {
   int counterValue = 0;
-  extern struct configuration settings;
   
   pthread_mutex_lock(&count_mutex);
 
@@ -150,7 +149,7 @@ int modifyClientThreadCounter(int delta)
   {
 	clientCounter++;
 
-	if(clientCounter > settings.maxClientThreads)
+	if(clientCounter > pGetConfig()->maxClientThreads)
 	{
 		lockedThreads++;
 		pthread_cond_wait(&condition_cond, &count_mutex);
@@ -159,7 +158,7 @@ int modifyClientThreadCounter(int delta)
   {
 	clientCounter--;
 
-	if(clientCounter <= settings.maxClientThreads)
+	if(clientCounter <= pGetConfig()->maxClientThreads)
 	{
 		if(lockedThreads > 0)
 		{
@@ -193,7 +192,7 @@ struct bufferList_t* allocBuffer(void)
   else
   {
     pBufferListElement = malloc(sizeof(struct bufferList_t));
-    pBufferListElement->buffer = malloc(settings.bufferSize);
+    pBufferListElement->buffer = malloc(pGetConfig()->bufferSize);
     pBufferListElement->next = 0;
   }
   pthread_mutex_unlock(&bufferListMutex);

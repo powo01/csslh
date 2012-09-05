@@ -26,13 +26,11 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <netdb.h>
 #include <errno.h>
 
-#include "settings.h"
+#include "config.h"
 #include "utils.h"
 #include "handleConnections.h"
 
 const char* versionId = "$Id: main.c 106 2008-09-07 16:26:09Z wolfgang $";
-
-extern struct configuration settings;
 
 int main(int argc, char* argv[])
 {
@@ -46,7 +44,7 @@ int main(int argc, char* argv[])
 	  int serverSockets[10];
 	  int socketIndex = 0;
 
-	  resolvAddress(settings.publicHostname, settings.publicPort,
+	  resolvAddress(pGetConfig()->publicHostname, pGetConfig()->publicPort,
 			&addrInfoBase);
 	  
 	  
