@@ -236,15 +236,27 @@ void* bridgeThread(void* arg)
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
 	  int localSocket;
-			
+	  char prefetchBuffer[3];
+	  ssize_t prefetchReadCount = 0;
+	  	
 	  if(rc == 0) // timeout -> ssh connection
 	    {
 	      localPort = pGetConfig()->sshPort;
 	      localHost = pGetConfig()->sshHostname;
 	    }
-	  else	// ssl connection
+	  else	// ssl and SSH protocol 2 connections 
 	    {
-	      connectionTimeout.tv_sec= sslConnectionTimeout.tv_sec;
+		  prefetchReadCount = recv(remoteSocket, prefetchBuffer, sizeof(prefetchBuffer), 0);
+		  
+		  if(memcmp("SSH",prefetchBuffer, sizeof(prefetchBuffer)) == 0)
+		  {
+			  localPort = pGetConfig()->sshPort;
+	          localHost = pGetConfig()->sshHostname;
+		  }
+		  else
+		  {
+			connectionTimeout.tv_sec= sslConnectionTimeout.tv_sec;
+		  }
 	    }
 		  
 	  resolvAddress(localHost, localPort, &addrInfo);
@@ -283,8 +295,8 @@ void* bridgeThread(void* arg)
               { 
               		if(rc != 0) // no timeout
 			{
-		  		if(redirectData(remoteSocket, localSocket,
-			 	pBufferListElement->buffer) > 0)
+				if(writeall(localSocket, prefetchBuffer, prefetchReadCount) &&
+					redirectData(remoteSocket, localSocket, pBufferListElement->buffer) > 0)
 		    		{
 		      			rc = 0; // handle as normal connection
 		    		}
