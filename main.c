@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
 	{   
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
-	  int serverSockets[10];
+	  int serverSockets[maxServerBindAddresses];
 	  int socketIndex = 0;
 
 	  resolvAddress(pGetConfig()->publicHostname, pGetConfig()->publicPort,
@@ -52,6 +52,12 @@ int main(int argc, char* argv[])
 
 	  while(addrInfo != NULL)
 	    {
+	      if(socketIndex == maxServerBindAddresses)
+	      {
+		fprintf(stderr,
+                          "error: more than %d server bind addresses,\n", maxServerBindAddresses);
+		return(EINVAL);
+	      }
 	      int serverSocket = socket(addrInfo->ai_family,
 				    addrInfo->ai_socktype,
 				    addrInfo->ai_protocol);
@@ -77,7 +83,7 @@ int main(int argc, char* argv[])
 		addrInfoBase = NULL;
 	     }
 
-	      if(socketIndex > 0 &&
+	      if(socketIndex > 0 && 
 		 daemonize(argv[0]) != -1)	
 		{
 		  handleConnections(serverSockets,socketIndex);
@@ -94,7 +100,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr,"%s must be started as root\n\r",
 			argv[0]);
 		
-		rc = -1;
+		rc = EACCES;
 	  }
 	return(rc);
 }

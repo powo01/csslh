@@ -24,6 +24,8 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #define TRUE (1==1)
 #define FALSE (2==1)
 
+#define maxServerBindAddresses 10
+
 typedef struct
 {
 	char* publicHostname;
