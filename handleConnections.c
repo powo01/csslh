@@ -251,7 +251,7 @@ void* bridgeThread(void* arg)
 		  if(memcmp("SSH",prefetchBuffer, sizeof(prefetchBuffer)) == 0)
 		  {
 			syslog(LOG_DEBUG,
-				""%s(): incomming SSH protocol 2 connection detected ...",
+				"%s(): incomming SSH protocol 2 connection detected ...",
 				__FUNCTION__);
 			  localPort = pGetConfig()->sshPort;
 		          localHost = pGetConfig()->sshHostname;
