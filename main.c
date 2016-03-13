@@ -37,7 +37,8 @@ int main(int argc, char* argv[])
 	int rc = parseCommandLine(argc, argv);
 	
 	// test for root
-	if(0 == geteuid()) // need to be root
+	if(0 == geteuid() || // need to be root
+	   atoi(pGetConfig()->publicPort) >= 1024)
 	{   
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
