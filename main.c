@@ -42,22 +42,34 @@ int main(int argc, char* argv[])
 	// resolv port to numeric
 	int publicPort;
 	
+	// port in digits or service name
 	if(isdigit(*(pGetConfig()->publicPort)))
 	{
 		char* ptr = pGetConfig()->publicPort;
 		
-		while(*ptr)
+		// test for all digits
+		while(isdigit(*(++ptr)));
+		
+		if(*ptr)
 		{
-			if(!isdigit(*ptr))
+			fprintf(stderr,
+					"error: Portnumber contains an non digit\n");
+			return(EINVAL);
+		}
+		else
+		{
+			// get port number from string
+			publicPort = atoi(pGetConfig()->publicPort);
+		
+			// port number in valid range ?
+			if(publicPort < 1 || publicPort > 65535)
 			{
 				fprintf(stderr,
-					"error: Portnumber contains an non digit\n");
+					"error: Portnumber %d out of range\n",
+					publicPort);
 				return(EINVAL);
 			}
-			ptr++;
 		}
-		
-		publicPort = atoi(pGetConfig()->publicPort);
 	}
 	else
 	{
@@ -67,7 +79,7 @@ int main(int argc, char* argv[])
 		if(resolvPort == NULL)
 		{
 			fprintf(stderr,
-				"error: unable to map service %s to port number\n",
+				"error: unable to map tcp service %s to port number\n",
 				pGetConfig()->publicPort);
 				
 			return(EINVAL);
