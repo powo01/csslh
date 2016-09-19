@@ -1,6 +1,6 @@
 TARGET=csslh
 LIBS=-lpthread
-CFLAGS=-Wall -O2 -g
+CFLAGS=-Wall -Wextra -Werror -O2 -g
 OBJS=main.o config.o utils.o handleConnections.o readWrite.o  
 CC=gcc
 INSTALLDIR ?= /usr/local/bin
