@@ -33,7 +33,7 @@ int writeall(int socket, void* buffer, size_t bytes)
 {
 	int rtn = FALSE;
 
-	ssize_t alreadyWriteBytes = 0;
+	size_t alreadyWriteBytes = 0;
 
 	while(alreadyWriteBytes < bytes)
 	{
