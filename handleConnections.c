@@ -206,7 +206,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
     }
   
   syslog(LOG_INFO,
-	 "%s(): ingressCounter = %ld, egressCounter = %ld",
+	 "%s(): ingressCounter = %zd, egressCounter = %zd",
 	 __FUNCTION__, ingressCounter, egressCounter);
 
   return(rc);
