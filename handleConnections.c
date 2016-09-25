@@ -114,7 +114,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
 	  				pthread_attr_setdetachstate(&threadAttr, PTHREAD_CREATE_DETACHED);
 	  
 	  				if(pthread_create(&threadId, &threadAttr,
-			    			&bridgeThread, (void *) clientSocket) == 0)
+			    			&bridgeThread, (void *) (intptr_t) clientSocket) == 0)
 	    				{
 	      					syslog(LOG_DEBUG,
 		     					"spawn new thread for %d",
@@ -206,7 +206,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
     }
   
   syslog(LOG_INFO,
-	 "%s(): ingressCounter = %d, egressCounter = %d",
+	 "%s(): ingressCounter = %ld, egressCounter = %ld",
 	 __FUNCTION__, ingressCounter, egressCounter);
 
   return(rc);
@@ -214,7 +214,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
 void* bridgeThread(void* arg)
 {
-  int remoteSocket = (int) arg;
+  int remoteSocket = (int)(intptr_t) arg;
   
   if(0 != geteuid()) // run only as non-root
     {
