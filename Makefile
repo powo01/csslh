@@ -6,6 +6,8 @@ CC=gcc
 INSTALLDIR ?= /usr/local/bin
 DEPEND=.depend
 
+.PHONY: clean
+
 all:  $(DEPEND) $(TARGET)
 
 install: $(TARGET)
@@ -20,8 +22,7 @@ $(TARGET): $(OBJS)
 clean:
 	rm -f $(TARGET) *.o $(DEPEND)
 
-$(DEPEND):
-	$(CC) -M $(CFLAGS) *.c > $@
-
+$(DEPEND): $(OBJS:%.o=%.c)
+	$(CC) -M $(CFLAGS) $^ >$@
 
 -include $(DEPEND)
