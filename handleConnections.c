@@ -238,30 +238,25 @@ void* bridgeThread(void* arg)
 	  int localSocket;
 	  char prefetchBuffer[3];
 	  ssize_t prefetchReadCount = 0;
-	  	
-	  if(rc == 0) // timeout -> ssh connection
-	    {
-	      localPort = pGetConfig()->sshPort;
-	      localHost = pGetConfig()->sshHostname;
-	    }
-	  else	// ssl and SSH protocol 2 connections 
-	    {
-		  prefetchReadCount = recv(remoteSocket, prefetchBuffer, sizeof(prefetchBuffer), 0);
-		  
-		  if(memcmp("SSH",prefetchBuffer, sizeof(prefetchBuffer)) == 0)
-		  {
-			syslog(LOG_DEBUG,
-				"%s(): incomming SSH protocol 2 connection detected ...",
-				__FUNCTION__);
-			  localPort = pGetConfig()->sshPort;
-		          localHost = pGetConfig()->sshHostname;
-		  }
-		  else
-		  {
-			connectionTimeout.tv_sec= sslConnectionTimeout.tv_sec;
-		  }
-	    }
-		  
+
+	  // ssl and SSH protocol 2 connections
+	  memset(prefetchBuffer, 0, sizeof(prefetchBuffer)); 
+	  prefetchReadCount = recv(remoteSocket, prefetchBuffer, sizeof(prefetchBuffer), 0);
+
+	  if(prefetchReadCount == sizeof(prefetchBuffer) &&
+	     	memcmp("SSH",prefetchBuffer, prefetchReadCount) == 0)
+          {
+		syslog(LOG_DEBUG,
+			"%s(): incomming SSH protocol 2 connection detected ...",
+			__FUNCTION__);
+			localPort = pGetConfig()->sshPort;
+		        localHost = pGetConfig()->sshHostname;
+          }
+	  else
+	  {
+		connectionTimeout.tv_sec= sslConnectionTimeout.tv_sec;
+	  }
+
 	  resolvAddress(localHost, localPort, &addrInfo);
 
 	  addrInfoBase = addrInfo; // need for delete
