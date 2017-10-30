@@ -1,9 +1,9 @@
 TARGET=csslh
 LIBS=-lpthread
 CFLAGS=-Wall -Wextra -Werror -O2 -g
-OBJS=main.o config.o utils.o handleConnections.o readWrite.o  
+OBJS=main.o config.o utils.o handleConnections.o readWrite.o
 CC=gcc
-INSTALLDIR ?= /usr/local/bin
+INSTALLDIR ?= /usr/local/sbin
 DEPEND=.depend
 
 .PHONY: clean
@@ -15,10 +15,10 @@ install: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^ $(LIBS)
-		
+
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
-    
+
 clean:
 	rm -f $(TARGET) *.o $(DEPEND)
 
