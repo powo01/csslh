@@ -235,7 +235,7 @@ void* bridgeThread(void* arg)
 	{
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
-	  int localSocket;
+	  int localSocket=EBADFD;
 	  char prefetchBuffer[3];
 	  ssize_t prefetchReadCount = 0;
 
