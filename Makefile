@@ -5,6 +5,7 @@ OBJS=main.o config.o utils.o handleConnections.o readWrite.o
 CC=gcc
 INSTALLDIR ?= /usr/local/sbin
 DEPEND=.depend
+VERSION=$(shell git describe --tag)
 
 .PHONY: clean
 
@@ -17,7 +18,7 @@ $(TARGET): $(OBJS)
 	$(CC) -o $@ $^ $(LIBS)
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -DBUILD_VERSION=\"$(VERSION)\" -c $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGET) *.o $(DEPEND)

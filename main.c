@@ -142,6 +142,8 @@ int main(int argc, char* argv[])
 	      if(socketIndex > 0 && 
 		 daemonize(argv[0]) != -1)	
 		{
+		  const char* buildVersion = BUILD_VERSION;
+		  syslog(LOG_NOTICE,"%s started, BuildVersion %s\n",argv[0], buildVersion);
 		  handleConnections(serverSockets,socketIndex);
 		}
 	      else
