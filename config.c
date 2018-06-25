@@ -29,6 +29,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 
 #define BUFFERSIZE 2048
 
+const char* buildVersion = BUILD_VERSION;
 
 config_t settings;
 
@@ -59,8 +60,7 @@ void splitHostPort(char* hostPort, char** hostPart, char** portPart)
 int parseCommandLine(int argc, char* argv[])
 {
 	int rc = TRUE;
-	extern const char* versionId;
-	
+
 	const struct option long_options[] =
 	{
 		{ "port", required_argument, 0, 'p' },
@@ -70,7 +70,9 @@ int parseCommandLine(int argc, char* argv[])
 		{ "buffersize", required_argument, 0, 'b' },
 		{ "nicelevel", required_argument, 0, 'n' },
 		{ "help", no_argument, 0, 'h' },
+#ifdef BUILD_VERSION
 		{ "version", no_argument, 0, 'v' },
+#endif
 		{ "limitThreads", required_argument, 0, 'x'},
 		{ 0, 0, 0, 0  }
 	};
@@ -94,10 +96,12 @@ int parseCommandLine(int argc, char* argv[])
 			break; /* end of list */
 		switch (result)
 		{
+#ifdef BUILD_VERSION
 			case 'v': /* print version */
-				fprintf(stderr,"Version: %s\n\r", versionId);
+				fprintf(stderr,"Version: %s\n\r", buildVersion);
 				exit(0);
 				break;
+#endif
 			case 'p': /* same as index==0 */
 				splitHostPort(optarg,
 							  &settings.publicHostname, &settings.publicPort);

@@ -33,8 +33,6 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include "utils.h"
 #include "handleConnections.h"
 
-const char* versionId = "$Id: main.c 106 2008-09-07 16:26:09Z wolfgang $";
-
 int main(int argc, char* argv[])
 {
 	int rc = parseCommandLine(argc, argv);
@@ -142,8 +140,10 @@ int main(int argc, char* argv[])
 	      if(socketIndex > 0 && 
 		 daemonize(argv[0]) != -1)	
 		{
-		  const char* buildVersion = BUILD_VERSION;
+		#ifdef BUILD_VERSION
+		  extern const char* buildVersion;
 		  syslog(LOG_NOTICE,"%s started, BuildVersion %s\n",argv[0], buildVersion);
+		#endif
 		  handleConnections(serverSockets,socketIndex);
 		}
 	      else
