@@ -122,20 +122,17 @@ int daemonize(const char* name)
     if(0 == geteuid()) // only for root
     {
     	struct passwd* userSystemData = getpwnam(pGetConfig()->username);
-    	
-    	if(userSystemData != 0)
-    	{
-    		// leave user and group root
-    		setegid(userSystemData->pw_gid);
-    		seteuid(userSystemData->pw_uid);
-    	}
-    	else
+    
+        // leave user and group root	
+    	if(userSystemData == 0 ||
+	   setegid(userSystemData->pw_gid) != 0 ||
+	   seteuid(userSystemData->pw_uid) !=0 )
     	{
     		fprintf(stderr,"unable to change user and group");
     		exit(1);
     	}
     }
-	return(rc);
+    return(rc);
 }
 
 

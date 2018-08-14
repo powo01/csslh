@@ -21,7 +21,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef READWRITE_H_
 #define READWRITE_H_
 
-int writeall(int socket, void* buffer, size_t bytes);
-ssize_t redirectData(int fromSocket, int toSocket, void* buffer);
+int writeall(int socket, unsigned char* buffer, size_t bytes);
+ssize_t redirectData(int fromSocket, int toSocket, unsigned char* buffer);
 
 #endif /*READWRITE_H_*/

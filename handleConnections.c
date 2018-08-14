@@ -236,7 +236,7 @@ void* bridgeThread(void* arg)
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
 	  int localSocket=EBADFD;
-	  char prefetchBuffer[3];
+	  unsigned char prefetchBuffer[3];
 	  ssize_t prefetchReadCount = 0;
 
 	  // ssl and SSH protocol 2 connections
