@@ -251,7 +251,7 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
       // find last element and append
       while(listPtr->next != NULL)
       {
-        listPtr++;
+        listPtr = listPtr->next;
       }
 
       listPtr->next = pBufferListElement;
