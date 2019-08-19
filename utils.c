@@ -197,10 +197,12 @@ struct bufferList_t* allocBuffer(void)
         {
           listPtr->buffer = bufferPtr;
           bufferPtr += bufferSize;
+
+          // other than last element
           if(--elements)
           {
-            struct bufferList_t* nextPtr = listPtr + 1;
-            listPtr->next = nextPtr;
+            struct bufferList_t* nextPtr = listPtr;
+            listPtr->next = ++nextPtr;
             listPtr = nextPtr;
           }
           else
@@ -237,9 +239,24 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
   {
     pthread_mutex_lock(&bufferListMutex);
 
-    pBufferListElement->next = pBufferListRoot;
-    pBufferListRoot = pBufferListElement;
+    // empty list
+    if(pBufferListRoot == NULL)
+    {
+      pBufferListRoot = pBufferListElement;
+    }
+    else
+    {
+      struct bufferList_t* listPtr = pBufferListRoot;
 
+      // find last element and append
+      while(listPtr->next != NULL)
+      {
+        listPtr++;
+      }
+
+      listPtr->next = pBufferListElement;
+    }
+    
     pthread_mutex_unlock(&bufferListMutex);
   }
   else
