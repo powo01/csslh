@@ -178,6 +178,44 @@ struct bufferList_t* allocBuffer(void)
 
   pthread_mutex_lock(&bufferListMutex);
   
+  if(pBufferListRoot == NULL)
+  {
+    int elements = pGetConfig()->maxClientThreads;
+  
+    pBufferListRoot = malloc(elements * sizeof(struct bufferList_t));
+
+    if(pBufferListRoot != NULL)
+    {
+      struct bufferList_t* listPtr = pBufferListRoot;
+
+      const size_t bufferSize = pGetConfig()->bufferSize;
+      unsigned char* bufferPtr = malloc(elements * bufferSize);
+
+      if(bufferPtr != NULL)
+      {
+        while(elements)
+        {
+          listPtr->buffer = bufferPtr;
+          bufferPtr += bufferSize;
+          if(--elements)
+          {
+            struct bufferList_t* nextPtr = listPtr + 1;
+            listPtr->next = nextPtr;
+            listPtr = nextPtr;
+          }
+          else
+          {
+            listPtr->next = NULL;
+          }
+        }
+      }
+      else
+      {
+        free(pBufferListRoot);
+        pBufferListRoot = NULL;
+      }
+    }
+  }
   if(pBufferListRoot != 0)
   {
     pBufferListElement = pBufferListRoot;
@@ -186,20 +224,9 @@ struct bufferList_t* allocBuffer(void)
     if(pBufferListElement->next != 0)
   	pBufferListElement->next = 0; 
   }
-  else
-  {
-    pBufferListElement = malloc(sizeof(struct bufferList_t));
-    pBufferListElement->buffer = malloc(pGetConfig()->bufferSize);
-    pBufferListElement->next = 0;
-  }
+
   pthread_mutex_unlock(&bufferListMutex);
 
-  if(0 == pBufferListElement ||
-     0 == pBufferListElement->buffer)
-  {
-	 syslog(LOG_ERR,"unable to get new buffer");
-  }
-  
   return(pBufferListElement);
 }
 
