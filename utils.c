@@ -172,13 +172,11 @@ int modifyClientThreadCounter(int delta)
   return(counterValue);
 }
 
-struct bufferList_t* allocBuffer(void)
+void initBuffer(void)
 {
-  struct bufferList_t* pBufferListElement = 0;
-
-  pthread_mutex_lock(&bufferListMutex);
-  
-  if(pBufferListRoot == NULL)
+	pthread_mutex_lock(&bufferListMutex);
+	
+	if(pBufferListRoot == NULL)
   {
     int elements = pGetConfig()->maxClientThreads;
   
@@ -218,6 +216,16 @@ struct bufferList_t* allocBuffer(void)
       }
     }
   }
+  
+  pthread_mutex_unlock(&bufferListMutex);
+}
+
+struct bufferList_t* allocBuffer(void)
+{
+  struct bufferList_t* pBufferListElement = 0;
+
+  pthread_mutex_lock(&bufferListMutex);
+  
   if(pBufferListRoot != 0)
   {
     pBufferListElement = pBufferListRoot;

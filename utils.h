@@ -35,6 +35,7 @@ int daemonize(const char* name);
 
 int modifyClientThreadCounter(int delta);
 
+void initBuffer(void);
 struct bufferList_t* allocBuffer(void);
 void freeBuffer(struct bufferList_t* pBufferListElement);
 

@@ -144,6 +144,7 @@ int main(int argc, char* argv[])
 		  extern const char* buildVersion;
 		  syslog(LOG_NOTICE,"%s started, BuildVersion %s\n",argv[0], buildVersion);
 		#endif
+		  initBuffer();
 		  handleConnections(serverSockets,socketIndex);
 		}
 	      else
