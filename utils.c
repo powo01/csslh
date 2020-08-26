@@ -73,9 +73,9 @@ void resolvAddress (const char* hostname,
 
   if(exitCode != EXIT_SUCCESS)
   {
-    perror("getaddrinfo");
-
-    exit(exitCode);
+	syslog(LOG_ERR,"%s: %s (errno=%d)", __FUNCTION__, strerror(exitCode), exitCode);
+	
+    	exit(exitCode);
   }
 }	
 
