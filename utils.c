@@ -68,10 +68,14 @@ void resolvAddress (const char* hostname,
   hints.ai_addr = NULL;
   hints.ai_next = NULL;
 
-  if(0 != getaddrinfo(hostname, port,
-		      &hints, res))
+  int exitCode = getaddrinfo(hostname, port,
+		      &hints, res);
+
+  if(exitCode != EXIT_SUCCESS)
   {
-    fprintf(stderr, "getaddrinfo: failed\n");
+    perror("getaddrinfo");
+
+    exit(exitCode);
   }
 }	
 
