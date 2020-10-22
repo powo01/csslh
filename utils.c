@@ -87,7 +87,7 @@ int daemonize(const char* name)
 		fprintf(stderr,"%s started ... (pid=%d)\n\r",
 				name, rc);
 
-		FILE* pidFd = fopen("/var/run/csslh.pid", "w");
+		FILE* pidFd = fopen(pGetConfig()->pidFile, "w");
 		
 		if(pidFd != 0)
 		{

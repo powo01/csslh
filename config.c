@@ -76,6 +76,7 @@ int parseCommandLine(int argc, char* argv[])
 		{ "version", no_argument, 0, 'v' },
 #endif
 		{ "limitThreads", required_argument, 0, 'x'},
+		{ "PidFile", required_argument, 0, 'P'},
 		{ 0, 0, 0, 0  }
 	};
 	
@@ -88,11 +89,12 @@ int parseCommandLine(int argc, char* argv[])
 	settings.niceLevel = 19;
 	settings.username = "nobody";
 	settings.maxClientThreads = 7;
+	settings.pidFile = "/run/csslh.pid";
 	
 	while (optind < argc)
 	{
 		int index = -1;
-		int result = getopt_long(argc, argv, "p:s:l:t:b:n:hvx:",
+		int result = getopt_long(argc, argv, "p:s:l:t:b:n:hvx:P:",
 				long_options, &index);
 		if (result == -1)
 			break; /* end of list */
@@ -127,7 +129,10 @@ int parseCommandLine(int argc, char* argv[])
 				break;
 			case 'x':
 				settings.maxClientThreads = atoi(optarg);
-				break;				
+				break;
+			case 'P':
+				settings.pidFile = malloc(strlen(optarg)+1);
+				strcpy(settings.pidFile, optarg);
 			default: /* unknown */
 				break;
 		}
@@ -141,4 +146,3 @@ int parseCommandLine(int argc, char* argv[])
 
 	return(rc);
 }
-

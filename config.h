@@ -33,6 +33,7 @@ typedef struct
 	char* sshHostname;
 	char* sshPort;
 	char* sslHostname;
+	char* pidFile;
 	int timeOut;
 	char* sslPort;
 	int bufferSize;
