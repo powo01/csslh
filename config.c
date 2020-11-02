@@ -71,12 +71,11 @@ int parseCommandLine(int argc, char* argv[])
 		{ "timeout", required_argument, 0, 't' },
 		{ "buffersize", required_argument, 0, 'b' },
 		{ "nicelevel", required_argument, 0, 'n' },
-		{ "help", no_argument, 0, 'h' },
+		{ "limitThreads", required_argument, 0, 'x'},
+		{ "PidFile", required_argument, 0, 'P'},
 #ifdef BUILD_VERSION
 		{ "version", no_argument, 0, 'v' },
 #endif
-		{ "limitThreads", required_argument, 0, 'x'},
-		{ "PidFile", required_argument, 0, 'P'},
 		{ 0, 0, 0, 0  }
 	};
 	
@@ -94,18 +93,12 @@ int parseCommandLine(int argc, char* argv[])
 	while (optind < argc)
 	{
 		int index = -1;
-		int result = getopt_long(argc, argv, "p:s:l:t:b:n:hvx:P:",
+		int result = getopt_long(argc, argv, "p:s:l:t:b:n:x:P:v",
 				long_options, &index);
 		if (result == -1)
 			break; /* end of list */
 		switch (result)
 		{
-#ifdef BUILD_VERSION
-			case 'v': /* print version */
-				fprintf(stderr,"Version: %s\n\r", buildVersion);
-				exit(0);
-				break;
-#endif
 			case 'p': /* same as index==0 */
 				splitHostPort(optarg,
 							  &settings.publicHostname, &settings.publicPort);
@@ -124,15 +117,22 @@ int parseCommandLine(int argc, char* argv[])
 			case 'b': /* same as index==4 */
 				settings.bufferSize = atoi(optarg);
 				break;
-			case 'n': /* same as index==4 */
+			case 'n': // index==5
 				settings.niceLevel = atoi(optarg);
 				break;
-			case 'x':
+			case 'x': // index==6
 				settings.maxClientThreads = atoi(optarg);
 				break;
-			case 'P':
+			case 'P': // index==7
 				settings.pidFile = malloc(strlen(optarg)+1);
 				strcpy(settings.pidFile, optarg);
+				break;
+#ifdef BUILD_VERSION
+			case 'v': /* index==8, print version */
+				fprintf(stderr,"Version: %s\n\r", buildVersion);
+				exit(0);
+				break;
+#endif
 			default: /* unknown */
 				break;
 		}
