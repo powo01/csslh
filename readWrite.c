@@ -25,6 +25,7 @@ along with csslh.  If not, see <http://www.gnu.org/licenses/>.
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <string.h>
 
 #include "config.h"
 #include "readWrite.h"
@@ -54,8 +55,8 @@ int writeall(int socket, unsigned char* buffer, size_t bytes)
 				if(errno == EINTR)
 					continue;
 
-				syslog(LOG_ERR,"%s:%d: Error during write (errno=%d)",
-					 __FILE__, __LINE__, errno);
+				syslog(LOG_ERR,"%s:%d: %s",
+					 __FILE__, __LINE__, strerror(errno));
 			}
 
 			break;

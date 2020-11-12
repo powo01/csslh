@@ -93,7 +93,7 @@ int handleConnections(int* serverSockets, int numServerSockets)
 
 					if(0 != strncmp(host,lastHost,NI_MAXHOST))
 					{
-						syslog(LOG_NOTICE,
+						syslog(LOG_INFO,
 					       		"Child connection from %s:%s",
 				  		       host, service);
 

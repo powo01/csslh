@@ -120,7 +120,7 @@ int daemonize(const char* name)
     nice(pGetConfig()->niceLevel);        // lowest prio
 
     // prepare syslog
-    setlogmask(LOG_UPTO(LOG_NOTICE));
+    setlogmask(LOG_UPTO(LOG_INFO));
     openlog("csslh",LOG_PID,LOG_DAEMON); 
     
     if(0 == geteuid()) // only for root
