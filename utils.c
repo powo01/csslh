@@ -44,13 +44,23 @@ const char* utilsId = "$Id$";
 #define NEW_ROOT_DIR "/tmp"
 
 struct bufferList_t* pBufferListRoot = 0;
-pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
+// pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
 volatile int clientCounter = 0;
 
 pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
 volatile int lockedThreads = 0;
+volatile int bufferSpinLock = 0;
 
+// https://stackoverflow.com/questions/1383363/is-my-spin-lock-implementation-correct-and-optimal
+inline void lock(volatile int *locked) {
+    while (__sync_val_compare_and_swap(locked, 0, 1));
+    asm volatile("lfence" ::: "memory");
+}
+inline void unlock(volatile int *locked) {
+    *locked=0;
+    asm volatile("sfence" ::: "memory");
+}
 
 void resolvAddress (const char* hostname,
 		    const char* port,
@@ -120,7 +130,7 @@ int daemonize(const char* name)
     nice(pGetConfig()->niceLevel);        // lowest prio
 
     // prepare syslog
-    setlogmask(LOG_UPTO(LOG_INFO));
+    setlogmask(LOG_UPTO(LOG_NOTICE));
     openlog("csslh",LOG_PID,LOG_DAEMON); 
     
     if(0 == geteuid()) // only for root
@@ -178,7 +188,7 @@ int modifyClientThreadCounter(int delta)
 
 void initBuffer(void)
 {
-	pthread_mutex_lock(&bufferListMutex);
+  lock(&bufferSpinLock);
 	
 	if(pBufferListRoot == NULL)
   {
@@ -221,25 +231,25 @@ void initBuffer(void)
     }
   }
   
-  pthread_mutex_unlock(&bufferListMutex);
+  unlock(&bufferSpinLock);
 }
 
 struct bufferList_t* allocBuffer(void)
 {
   struct bufferList_t* pBufferListElement = 0;
+ 
+  lock(&bufferSpinLock);
 
-  pthread_mutex_lock(&bufferListMutex);
-  
   if(pBufferListRoot != 0)
   {
     pBufferListElement = pBufferListRoot;
     pBufferListRoot = pBufferListElement->next;
 
     if(pBufferListElement->next != 0)
-  	pBufferListElement->next = 0; 
+  	  pBufferListElement->next = 0; 
   }
 
-  pthread_mutex_unlock(&bufferListMutex);
+  unlock(&bufferSpinLock);
 
   return(pBufferListElement);
 }
@@ -249,7 +259,7 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
   if(pBufferListElement != 0 &&
      pBufferListElement->buffer != 0 )
   {
-    pthread_mutex_lock(&bufferListMutex);
+    lock(&bufferSpinLock);
 
     // empty list
     if(pBufferListRoot == NULL)
@@ -269,9 +279,11 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
       listPtr->next = pBufferListElement;
     }
     
-    pthread_mutex_unlock(&bufferListMutex);
+    unlock(&bufferSpinLock);
+
   }
   else
 	syslog(LOG_ERR,"unable to free empty list element");
 }
+
   
