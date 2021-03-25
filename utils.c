@@ -44,23 +44,13 @@ const char* utilsId = "$Id$";
 #define NEW_ROOT_DIR "/tmp"
 
 struct bufferList_t* pBufferListRoot = 0;
-// pthread_mutex_t bufferListMutex = PTHREAD_MUTEX_INITIALIZER;
 volatile int clientCounter = 0;
 
 pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
 volatile int lockedThreads = 0;
-volatile int bufferSpinLock = 0;
 
-// https://stackoverflow.com/questions/1383363/is-my-spin-lock-implementation-correct-and-optimal
-inline void lock(volatile int *locked) {
-    while (__sync_val_compare_and_swap(locked, 0, 1));
-    asm volatile("lfence" ::: "memory");
-}
-inline void unlock(volatile int *locked) {
-    *locked=0;
-    asm volatile("sfence" ::: "memory");
-}
+pthread_spinlock_t bufferSpinLock;
 
 void resolvAddress (const char* hostname,
 		    const char* port,
@@ -188,8 +178,6 @@ int modifyClientThreadCounter(int delta)
 
 void initBuffer(void)
 {
-  lock(&bufferSpinLock);
-	
 	if(pBufferListRoot == NULL)
   {
     int elements = pGetConfig()->maxClientThreads;
@@ -230,15 +218,14 @@ void initBuffer(void)
       }
     }
   }
-  
-  unlock(&bufferSpinLock);
+  pthread_spin_init(&bufferSpinLock, PTHREAD_PROCESS_PRIVATE);
 }
 
 struct bufferList_t* allocBuffer(void)
 {
   struct bufferList_t* pBufferListElement = 0;
  
-  lock(&bufferSpinLock);
+  pthread_spin_lock(&bufferSpinLock);
 
   if(pBufferListRoot != 0)
   {
@@ -249,7 +236,7 @@ struct bufferList_t* allocBuffer(void)
   	  pBufferListElement->next = 0; 
   }
 
-  unlock(&bufferSpinLock);
+  pthread_spin_unlock(&bufferSpinLock);
 
   return(pBufferListElement);
 }
@@ -259,7 +246,7 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
   if(pBufferListElement != 0 &&
      pBufferListElement->buffer != 0 )
   {
-    lock(&bufferSpinLock);
+    pthread_spin_lock(&bufferSpinLock);
 
     // empty list
     if(pBufferListRoot == NULL)
@@ -279,8 +266,7 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
       listPtr->next = pBufferListElement;
     }
     
-    unlock(&bufferSpinLock);
-
+    pthread_spin_unlock(&bufferSpinLock);
   }
   else
 	syslog(LOG_ERR,"unable to free empty list element");
