@@ -87,13 +87,16 @@ int daemonize(const char* name)
 		fprintf(stderr,"%s started ... (pid=%d)\n\r",
 				name, rc);
 
-		FILE* pidFd = fopen(pGetConfig()->pidFile, "w");
+    if(pGetConfig()->pidFile)
+    {
+		  FILE* pidFd = fopen(pGetConfig()->pidFile, "w");
 		
-		if(pidFd != 0)
-		{
-			fprintf(pidFd, "%d", rc);
-			fclose(pidFd);
-		}
+		  if(pidFd != 0)
+		  {
+			  fprintf(pidFd, "%d", rc);
+			  fclose(pidFd);
+		  }
+    }
 				
 		exit(0); // server quit
 	}
@@ -273,5 +276,3 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
   else
 	syslog(LOG_ERR,"unable to free empty list element");
 }
-
-  

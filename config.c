@@ -88,7 +88,7 @@ int parseCommandLine(int argc, char* argv[])
 	settings.niceLevel = 19;
 	settings.username = "nobody";
 	settings.maxClientThreads = 7;
-	settings.pidFile = "/run/csslh.pid";
+	settings.pidFile = NULL;
 	
 	while (optind < argc)
 	{
