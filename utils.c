@@ -50,7 +50,7 @@ pthread_mutex_t count_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_cond  = PTHREAD_COND_INITIALIZER;
 volatile int lockedThreads = 0;
 
-pthread_spinlock_t bufferSpinLock;
+pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void resolvAddress (const char* hostname,
 		    const char* port,
@@ -178,6 +178,8 @@ int modifyClientThreadCounter(int delta)
 
 void initBuffer(void)
 {
+  pthread_mutex_lock(&bufferMutex);
+
 	if(pBufferListRoot == NULL)
   {
     int elements = pGetConfig()->maxClientThreads;
@@ -218,14 +220,14 @@ void initBuffer(void)
       }
     }
   }
-  pthread_spin_init(&bufferSpinLock, PTHREAD_PROCESS_PRIVATE);
+  pthread_mutex_unlock(&bufferMutex);
 }
 
 struct bufferList_t* allocBuffer(void)
 {
   struct bufferList_t* pBufferListElement = 0;
  
-  pthread_spin_lock(&bufferSpinLock);
+  pthread_mutex_lock(&bufferMutex);
 
   if(pBufferListRoot != 0)
   {
@@ -236,7 +238,7 @@ struct bufferList_t* allocBuffer(void)
   	  pBufferListElement->next = 0; 
   }
 
-  pthread_spin_unlock(&bufferSpinLock);
+  pthread_mutex_unlock(&bufferMutex);
 
   return(pBufferListElement);
 }
@@ -246,7 +248,7 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
   if(pBufferListElement != 0 &&
      pBufferListElement->buffer != 0 )
   {
-    pthread_spin_lock(&bufferSpinLock);
+    pthread_mutex_lock(&bufferMutex);
 
     // empty list
     if(pBufferListRoot == NULL)
@@ -266,7 +268,7 @@ void freeBuffer(struct bufferList_t* pBufferListElement)
       listPtr->next = pBufferListElement;
     }
     
-    pthread_spin_unlock(&bufferSpinLock);
+    pthread_mutex_unlock(&bufferMutex);
   }
   else
 	syslog(LOG_ERR,"unable to free empty list element");
