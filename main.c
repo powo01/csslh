@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
 	      if(serverSocket >= 0)
 	      {
 	      	if(bind(serverSocket, addrInfo->ai_addr, addrInfo->ai_addrlen) != -1 &&
-		   listen(serverSocket, 5) != -1)
+		   listen(serverSocket, pGetConfig()->maxClientThreads) != -1)
 		   {
 			serverSockets[socketIndex++] = serverSocket;
 		   }
