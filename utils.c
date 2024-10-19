@@ -153,7 +153,7 @@ int modifyClientThreadCounter(int delta)
   {
 	clientCounter++;
 
-	if(clientCounter > pGetConfig()->maxClientThreads)
+	if(clientCounter >= pGetConfig()->maxClientThreads)
 	{
 		lockedThreads++;
 		pthread_cond_wait(&condition_cond, &count_mutex);
@@ -162,7 +162,7 @@ int modifyClientThreadCounter(int delta)
   {
 	clientCounter--;
 
-	if(clientCounter <= pGetConfig()->maxClientThreads)
+	if(clientCounter < pGetConfig()->maxClientThreads)
 	{
 		if(lockedThreads > 0)
 		{
