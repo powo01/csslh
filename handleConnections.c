@@ -222,7 +222,7 @@ void* bridgeThread(void* arg)
       char* localHost = pGetConfig()->sslHostname;
       struct timeval sshDetectTimeout = { pGetConfig()->timeOut , 0 }; // 2 sec
       struct timeval sslConnectionTimeout = { 120, 0 }; // 120 sec
-      struct timeval connectionTimeout = { 7200,0 }; // 2 hours
+      struct timeval connectionTimeout = { 600,0 }; // 600 sec
       fd_set readFds;
       int rc;
 		
