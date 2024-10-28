@@ -170,7 +170,7 @@ int bridgeConnection(int remoteSocket, int localSocket,
 
       int rtn = select(maxFd, &readFds, 0, 0, &tOut);
 
-      if(rtn == -1 || rtn == 0)
+      if(rtn <= 0)
 	{
 	  // timeout/error
 	  rc = TRUE;
@@ -231,7 +231,7 @@ void* bridgeThread(void* arg)
       FD_SET(remoteSocket, &readFds);
       rc = select(remoteSocket+1, &readFds, 0, 0, &sshDetectTimeout);
 		
-      if(rc != -1)
+      if(rc > 0)
 	{
 	  struct addrinfo* addrInfo;
 	  struct addrinfo* addrInfoBase;
@@ -291,19 +291,12 @@ void* bridgeThread(void* arg)
 	      if(NULL != pBufferListElement &&
 		 NULL !=  pBufferListElement->buffer)
               { 
-              		if(rc != 0) // no timeout
+              		if(rc > 0) // no timeout
 			{
 				if(writeall(localSocket, prefetchBuffer, prefetchReadCount) &&
-					redirectData(remoteSocket, localSocket, pBufferListElement->buffer) > 0)
-		    		{
-		      			rc = 0; // handle as normal connection
-		    		}
-			}
-		
-	      		if(rc == 0)
-			{  
-	      			bridgeConnection(remoteSocket, localSocket,
-				       pBufferListElement->buffer, &connectionTimeout);
+					redirectData(remoteSocket, localSocket, pBufferListElement->buffer) > 0)	
+	      				bridgeConnection(remoteSocket, localSocket,
+				       		pBufferListElement->buffer, &connectionTimeout);
                 	}
 
 	      		close(localSocket);
