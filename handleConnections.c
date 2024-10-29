@@ -291,15 +291,10 @@ void* bridgeThread(void* arg)
 	      if(NULL != pBufferListElement &&
 		 NULL !=  pBufferListElement->buffer)
               { 
-              		if(rc > 0) // no timeout
-			{
-				if(writeall(localSocket, prefetchBuffer, prefetchReadCount) &&
+			if(writeall(localSocket, prefetchBuffer, prefetchReadCount) &&
 					redirectData(remoteSocket, localSocket, pBufferListElement->buffer) > 0)	
 	      				bridgeConnection(remoteSocket, localSocket,
 				       		pBufferListElement->buffer, &connectionTimeout);
-                	}
-
-	      		close(localSocket);
 
 	      		freeBuffer(pBufferListElement);
 	     }
@@ -307,6 +302,7 @@ void* bridgeThread(void* arg)
 	     {
 			syslog(LOG_ERR, "%s(): invalid Bufferpointer", __FUNCTION__);
 	     }
+	     close(localSocket);	     
 	    }
 	  else
 	    {
